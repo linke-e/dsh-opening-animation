@@ -3,6 +3,9 @@
 // the image max-duration watchdog never applies); error → runtime.fail();
 // a rejected play() is retried once (autoplay policy races) before failing.
 // muted is a hard browser autoplay requirement, not a preference.
+// Params: scale (element transform, 1 = no zoom) and offsetX/offsetY (percent
+// of the screen, 0 = centered) position the video; fit keeps choosing how the
+// video content fills its element (cover/contain) beneath the transform.
 
 import type {
   AnimationController,
@@ -28,13 +31,21 @@ export class VideoPlayerEngine implements AnimationController {
 
   constructor(runtime: AnimationRuntime) {
     this.runtime = runtime;
-    const fit = runtime.params.fit === "contain" ? "contain" : "cover";
+    const p = runtime.params;
+    const fit = p.fit === "contain" ? "contain" : "cover";
+    const scale = VideoPlayerEngine.number(p.scale, 1);
+    const offsetX = VideoPlayerEngine.number(p.offsetX, 0);
+    const offsetY = VideoPlayerEngine.number(p.offsetY, 0);
+
     this.video = document.createElement("video");
     this.video.src = runtime.media.url;
     this.video.autoplay = true;
     this.video.muted = true;
     this.video.playsInline = true;
     this.video.style.objectFit = fit;
+    // Percent translate is relative to the element itself (full-screen here),
+    // so offsets read directly as fractions of the screen.
+    this.video.style.transform = `translate(${offsetX}%, ${offsetY}%) scale(${scale})`;
     runtime.container.append(this.video);
     this.video.addEventListener("ended", this.onEnded);
     this.video.addEventListener("error", this.onError);
@@ -87,6 +98,10 @@ export class VideoPlayerEngine implements AnimationController {
     this.completed = true;
     this.runtime.complete();
   }
+
+  private static number(value: unknown, fallback: number): number {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  }
 }
 
 export const videoPlayerAnimation: OpeningAnimation = {
@@ -96,6 +111,9 @@ export const videoPlayerAnimation: OpeningAnimation = {
   descriptionKey: "anim.video-player.desc",
   paramsSchema: {
     fit: { type: "enum", default: "cover", options: ["cover", "contain"] },
+    scale: { type: "number", default: 1, min: 0.1, max: 3, step: 0.05 },
+    offsetX: { type: "number", default: 0, min: -100, max: 100, step: 1 },
+    offsetY: { type: "number", default: 0, min: -100, max: 100, step: 1 },
   },
   create: (runtime) => new VideoPlayerEngine(runtime),
 };

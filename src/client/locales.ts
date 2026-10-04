@@ -69,6 +69,9 @@ export const en = {
   "param.feather": "Edge feather",
   "param.autoStartDelayMs": "Auto spread delay (ms)",
   "param.fit": "Video fit",
+  "param.scale": "Video scale",
+  "param.offsetX": "Offset X (% of screen)",
+  "param.offsetY": "Offset Y (% of screen)",
 };
 
 export const zh = {
@@ -137,4 +140,7 @@ export const zh = {
   "param.feather": "\u8FB9\u7F18\u6E10\u53D8",
   "param.autoStartDelayMs": "\u81EA\u52A8\u6269\u6563\u5EF6\u8FDF\uFF08ms\uFF09",
   "param.fit": "\u89C6\u9891\u586B\u5145",
+  "param.scale": "\u89C6\u9891\u7F29\u653E",
+  "param.offsetX": "\u6C34\u5E73\u504F\u79FB\uFF08\u5C4F\u5E55\u5BBD %\uFF09",
+  "param.offsetY": "\u5782\u76F4\u504F\u79FB\uFF08\u5C4F\u5E55\u9AD8 %\uFF09",
 };
