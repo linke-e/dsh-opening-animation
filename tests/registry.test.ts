@@ -24,20 +24,26 @@ const def: OpeningAnimation = {
 
 describe("animation registry", () => {
   it("resolves built-in animations by id and kind", () => {
-    expect(resolveAnimation("image", "grid-reveal")?.id).toBe("grid-reveal");
+    expect(resolveAnimation("image", "glitch")?.id).toBe("glitch");
     expect(resolveAnimation("image", "grid-reveal-spread")?.id).toBe("grid-reveal-spread");
+    expect(resolveAnimation("image", "tap-reveal")?.id).toBe("tap-reveal");
+    expect(resolveAnimation("image", "wipe-reveal")?.id).toBe("wipe-reveal");
     expect(resolveAnimation("video", "video-player")?.id).toBe("video-player");
   });
 
   it("refuses kind mismatches and unknown ids", () => {
-    expect(resolveAnimation("video", "grid-reveal")).toBeUndefined();
+    expect(resolveAnimation("video", "glitch")).toBeUndefined();
+    expect(resolveAnimation("video", "tap-reveal")).toBeUndefined();
+    expect(resolveAnimation("video", "wipe-reveal")).toBeUndefined();
     expect(resolveAnimation("image", "video-player")).toBeUndefined();
     expect(resolveAnimation("image", "nope")).toBeUndefined();
   });
 
   it("lists animations filtered by kind", () => {
     const ids = listAnimations().map((animation) => animation.id);
-    expect(ids).toContain("grid-reveal");
+    expect(ids).toContain("glitch");
+    expect(ids).toContain("tap-reveal");
+    expect(ids).toContain("wipe-reveal");
     expect(listAnimations("video").map((animation) => animation.id)).toEqual(["video-player"]);
   });
 
@@ -52,5 +58,10 @@ describe("animation registry", () => {
     expect(resolveAnimationParams(def)).toEqual({ size: 10, mode: "a" });
     expect(resolveAnimationParams(def, { size: 42, mode: "b" })).toEqual({ size: 42, mode: "b" });
     expect(resolveAnimationParams(def, { size: Number.NaN, mode: "not-an-option" })).toEqual({ size: 10, mode: "a" });
+  });
+
+  it("clamps numeric overrides to the schema range", () => {
+    expect(resolveAnimationParams(def, { size: 999 }).size).toBe(100);
+    expect(resolveAnimationParams(def, { size: -5 }).size).toBe(1);
   });
 });

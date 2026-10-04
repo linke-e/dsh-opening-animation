@@ -47,9 +47,9 @@ export function OpeningSection({ t, useOpening, controller }: OpeningSectionProp
         </p>
       )}
       {!state.ready ? (
-        <p className="dsh-opening-hint">{t("loading")}</p>
+        <p className="dsh-opening-note">{t("loading")}</p>
       ) : state.media.length === 0 ? (
-        <p className="dsh-opening-hint">{t("empty")}</p>
+        <p className="dsh-opening-note">{t("empty")}</p>
       ) : (
         <MediaGrid
           t={t}
@@ -67,14 +67,14 @@ export function OpeningSection({ t, useOpening, controller }: OpeningSectionProp
         />
         <span className="dsh-opening-toggle-copy">
           <span>{t("enabled")}</span>
-          <small className="dsh-opening-hint">{t("enabledHint")}</small>
+          <small className="dsh-opening-note">{t("enabledHint")}</small>
         </span>
       </label>
       <div className="dsh-opening-control">
         <span className="dsh-opening-control-head">
           <span>{t("animationLabel")}</span>
         </span>
-        <small className="dsh-opening-hint">{t("animationHint")}</small>
+        <small className="dsh-opening-note">{t("animationHint")}</small>
         <AnimationPicker
           t={t}
           kind={kind}

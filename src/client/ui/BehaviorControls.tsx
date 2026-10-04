@@ -22,7 +22,7 @@ export function BehaviorControls({ t, snap, controller }: BehaviorControlsProps)
           value={String(Math.round(snap.maxDurationMs / 1000))}
           onChange={(event) => controller.setMaxDuration(event.target.valueAsNumber * 1000)}
         />
-        <small className="dsh-opening-hint">{t("maxDurationHint")}</small>
+        <small className="dsh-opening-note">{t("maxDurationHint")}</small>
       </label>
       <label className="dsh-opening-control">
         <span className="dsh-opening-control-head">
@@ -30,7 +30,7 @@ export function BehaviorControls({ t, snap, controller }: BehaviorControlsProps)
           <output>{snap.transitionScale.toFixed(1)}×</output>
         </span>
         <input
-          type="range"
+          type="number"
           min="0.5"
           max="2"
           step="0.1"
@@ -46,7 +46,7 @@ export function BehaviorControls({ t, snap, controller }: BehaviorControlsProps)
         />
         <span className="dsh-opening-toggle-copy">
           <span>{t("skipHint")}</span>
-          <small className="dsh-opening-hint">{t("skipHintHint")}</small>
+          <small className="dsh-opening-note">{t("skipHintHint")}</small>
         </span>
       </label>
       <label className="dsh-opening-toggle">
@@ -57,7 +57,7 @@ export function BehaviorControls({ t, snap, controller }: BehaviorControlsProps)
         />
         <span className="dsh-opening-toggle-copy">
           <span>{t("skinHandoff")}</span>
-          <small className="dsh-opening-hint">{t("skinHandoffHint")}</small>
+          <small className="dsh-opening-note">{t("skinHandoffHint")}</small>
         </span>
       </label>
     </div>

@@ -72,6 +72,80 @@ export const GLOBAL_STYLES = String.raw`
 }
 .dsh-opening-skip.dsh-opening-skip-show { opacity: 1; }
 
+/* ---- wipe-reveal engine: dominant-color backdrop; the clipping container is
+   pinned at the scaled picture's left edge and wipes across its full extent,
+   then lands it (left → 0, width/scale → normal) as the full-screen backdrop ---- */
+.dsh-opening-wipe {
+  position: absolute;
+  inset: 0;
+  background: var(--dsh-opening-bg, #04050e);
+}
+.dsh-opening-wipe-reveal {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  will-change: left, width;
+}
+.dsh-opening-wipe-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100vw;
+  object-fit: cover;
+  object-position: center center;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* ---- tap-reveal engine: dominant-color backdrop, click-point circle reveal ---- */
+.dsh-opening-tap {
+  position: absolute;
+  inset: 0;
+  background: var(--dsh-opening-bg, #04050e);
+  cursor: pointer;
+}
+.dsh-opening-tap-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  clip-path: circle(0px at 50% 50%);
+  will-change: clip-path, transform;
+}
+.dsh-opening-tap-img.dsh-opening-tap-run {
+  transition: clip-path var(--dsh-tap-reveal-ms, 900ms) ease, transform var(--dsh-tap-reveal-ms, 900ms) ease;
+}
+/* Waiting-phase hint pill shared by the tap-reveal and grid-spread engines */
+.dsh-opening-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.32);
+  color: rgba(255, 255, 255, 0.92);
+  font: 13px/1.4 system-ui, sans-serif;
+  letter-spacing: 0.18em;
+  opacity: 0;
+  transition: opacity 600ms ease;
+  pointer-events: none;
+  animation: dsh-opening-hint-pulse 2.2s ease-in-out infinite;
+}
+.dsh-opening-hint.dsh-opening-hint-show { opacity: 1; }
+/* Fast fade-out once the interaction starts (click reveal / spread). */
+.dsh-opening-hint.dsh-opening-hint-hide {
+  opacity: 0;
+  transition: opacity 150ms ease;
+  animation: none;
+}
+@keyframes dsh-opening-hint-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.06); }
+}
+
 body[data-dsh-opening='active'] { overflow: hidden; }
 
 /* ---- settings panel ---- */
@@ -86,7 +160,7 @@ body[data-dsh-opening='active'] { overflow: hidden; }
 .dsh-opening-section p { margin: 0; }
 .dsh-opening-section h2 { font-size: 18px; font-weight: 600; }
 .dsh-opening-intro,
-.dsh-opening-hint { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 1.55; }
+.dsh-opening-note { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 1.55; }
 .dsh-opening-error { color: var(--dsw-alias-state-error-primary); font-size: 13px; }
 
 .dsh-opening-drop {
@@ -191,6 +265,7 @@ body[data-dsh-opening='active'] { overflow: hidden; }
 .dsh-opening-control output { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 .dsh-opening-control select,
 .dsh-opening-control input[type='number'] {
+  width: 100%;
   height: 34px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
@@ -199,7 +274,6 @@ body[data-dsh-opening='active'] { overflow: hidden; }
   color: var(--dsw-alias-label-primary);
   font: inherit;
 }
-.dsh-opening-control input[type='range'] { width: 100%; accent-color: var(--dsw-alias-brand-primary); }
 
 .dsh-opening-toggle { display: flex; align-items: center; gap: 10px; }
 .dsh-opening-toggle input { width: 18px; height: 18px; accent-color: var(--dsw-alias-brand-primary); }

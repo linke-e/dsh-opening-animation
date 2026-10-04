@@ -31,7 +31,7 @@ export function MediaDropZone({ t, disabled, onAdd }: MediaDropZoneProps) {
       onDrop={onDrop}
     >
       <strong>{t("upload")}</strong>
-      <span className="dsh-opening-hint">{t("uploadHint")}</span>
+      <span className="dsh-opening-note">{t("uploadHint")}</span>
       <input
         type="file"
         accept={ACCEPT}

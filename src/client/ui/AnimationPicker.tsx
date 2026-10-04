@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { listAnimations, resolveAnimationParams, type MediaKind } from "../registry";
 
 interface AnimationPickerProps {
@@ -12,6 +13,9 @@ interface AnimationPickerProps {
 export function AnimationPicker({ t, kind, value, paramOverrides, onChange, onParam }: AnimationPickerProps) {
   const animations = listAnimations(kind);
   const active = animations.find((animation) => animation.id === value) ?? animations[0];
+  // In-progress text for number inputs; cleared on blur so the clamped
+  // resolved value shows again (typing "1500" must not bounce per keystroke).
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   if (active === undefined) return null;
   const params = resolveAnimationParams(active, paramOverrides);
   const schema = active.paramsSchema ?? {};
@@ -27,7 +31,10 @@ export function AnimationPicker({ t, kind, value, paramOverrides, onChange, onPa
               name={`dsh-opening-animation-${kind}`}
               value={animation.id}
               checked={checked}
-              onChange={() => onChange(animation.id)}
+              onChange={() => {
+                setDrafts({});
+                onChange(animation.id);
+              }}
             />
             <span className="dsh-opening-radio-copy">
               <span>{t(animation.labelKey)}</span>
@@ -47,14 +54,23 @@ export function AnimationPicker({ t, kind, value, paramOverrides, onChange, onPa
                 </span>
                 {spec.type === "number" ? (
                   <input
-                    type="range"
-                    min={String(spec.min ?? 0)}
-                    max={String(spec.max ?? 100)}
-                    step={String(spec.step ?? 1)}
-                    value={String(params[key] ?? spec.default)}
+                    type="number"
+                    value={drafts[key] ?? String(params[key] ?? spec.default)}
+                    min={spec.min !== undefined ? String(spec.min) : undefined}
+                    max={spec.max !== undefined ? String(spec.max) : undefined}
+                    step={spec.step !== undefined ? String(spec.step) : undefined}
                     onChange={(event) => {
-                      if (active !== undefined) onParam(active.id, key, event.target.valueAsNumber);
+                      setDrafts((current) => ({ ...current, [key]: event.target.value }));
+                      const next = event.target.valueAsNumber;
+                      if (active !== undefined && Number.isFinite(next)) onParam(active.id, key, next);
                     }}
+                    onBlur={() =>
+                      setDrafts((current) => {
+                        const next = { ...current };
+                        delete next[key];
+                        return next;
+                      })
+                    }
                   />
                 ) : (
                   <select

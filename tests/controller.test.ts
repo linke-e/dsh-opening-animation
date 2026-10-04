@@ -118,7 +118,7 @@ describe("OpeningController snapshots", () => {
     const controller = makeController();
     await controller.initialize();
     controller.setAnimation("image", "not-registered");
-    expect(controller.getSnapshot().animationByKind.image).toBe("grid-reveal");
+    expect(controller.getSnapshot().animationByKind.image).toBe("tap-reveal");
     controller.setTransition("not-a-transition");
     expect(controller.getSnapshot().transitionId).toBe("cross-fade");
     controller.setTransition("zoom-fade");
@@ -127,8 +127,8 @@ describe("OpeningController snapshots", () => {
     expect(controller.getSnapshot().transitionScale).toBe(2);
     controller.setMaxDuration(1);
     expect(controller.getSnapshot().maxDurationMs).toBe(3000);
-    controller.setParam("grid-reveal", "cellSize", 64);
-    expect(controller.getSnapshot().paramOverrides["grid-reveal"]?.cellSize).toBe(64);
+    controller.setParam("glitch", "durationMs", 8000);
+    expect(controller.getSnapshot().paramOverrides["glitch"]?.durationMs).toBe(8000);
   });
 
   it("reports a storage error and un-pends when IndexedDB is unavailable", async () => {

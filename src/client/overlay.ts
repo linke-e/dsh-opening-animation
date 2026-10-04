@@ -71,7 +71,10 @@ export class OverlayRunner {
     const root = document.createElement("div");
     root.className = "dsh-opening-root";
     const bg = this.opts.params.bg;
-    root.style.setProperty("--dsh-opening-bg", typeof bg === "string" && bg.length > 0 ? bg : "#04050e");
+    root.style.setProperty(
+      "--dsh-opening-bg",
+      typeof bg === "string" && bg.length > 0 && bg !== "auto" ? bg : "#04050e",
+    );
     const stage = document.createElement("div");
     stage.className = "dsh-opening-stage";
     root.append(stage);

@@ -15,7 +15,7 @@ export interface OpeningPreferences {
 
 export const PREFS_KEY = "dsh.opening-animation.preferences.v1";
 
-export const DEFAULT_ANIMATION_BY_KIND = { image: "grid-reveal", video: "video-player" } as const;
+export const DEFAULT_ANIMATION_BY_KIND = { image: "tap-reveal", video: "video-player" } as const;
 
 export const DEFAULT_PREFERENCES: Readonly<OpeningPreferences> = Object.freeze({
   enabled: false,

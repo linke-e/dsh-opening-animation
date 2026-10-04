@@ -3,9 +3,11 @@
 // settings UI are driven entirely by the registry (ADR-003).
 // Engines never import React or anything under ui/; ui/ only sees these types.
 
-import { gridRevealAnimation } from "./animations/grid-reveal";
+import { glitchAnimation } from "./animations/glitch";
 import { gridRevealSpreadAnimation } from "./animations/grid-reveal-spread";
+import { tapRevealAnimation } from "./animations/tap-reveal";
 import { videoPlayerAnimation } from "./animations/video-player";
+import { wipeRevealAnimation } from "./animations/wipe-reveal";
 
 export type MediaKind = "image" | "video";
 
@@ -53,11 +55,11 @@ export interface ParamSpec {
 }
 
 export interface OpeningAnimation {
-  /** "grid-reveal" | "grid-reveal-spread" | "video-player" | ... */
+  /** "glitch" | "grid-reveal-spread" | "tap-reveal" | "video-player" | "wipe-reveal" | ... */
   id: string;
   /** Which media kind this animation consumes. */
   kind: MediaKind;
-  /** Locale key inside this plugin's namespace, e.g. "anim.grid-reveal.label". */
+  /** Locale key inside this plugin's namespace, e.g. "anim.glitch.label". */
   labelKey: string;
   descriptionKey?: string;
   /** Advanced parameters; the settings AnimationPicker renders them from this schema. */
@@ -85,7 +87,8 @@ export function listAnimations(kind?: MediaKind): readonly OpeningAnimation[] {
   return kind === undefined ? all : all.filter((def) => def.kind === kind);
 }
 
-/** Defaults merged with one animation's user overrides; validated against the schema. */
+/** Defaults merged with one animation's user overrides; numbers are clamped
+ * to the schema range (free-form numeric inputs can exceed it). */
 export function resolveAnimationParams(
   animation: OpeningAnimation,
   overrides?: Readonly<Record<string, number | string>>,
@@ -94,7 +97,7 @@ export function resolveAnimationParams(
   for (const [key, spec] of Object.entries(animation.paramsSchema ?? {})) {
     const override = overrides?.[key];
     if (spec.type === "number" && typeof override === "number" && Number.isFinite(override)) {
-      merged[key] = override;
+      merged[key] = clampToSpec(override, spec);
     } else if (spec.type === "enum" && typeof override === "string" && spec.options?.includes(override) === true) {
       merged[key] = override;
     } else {
@@ -104,6 +107,14 @@ export function resolveAnimationParams(
   return merged;
 }
 
-registerAnimation(gridRevealAnimation);
+function clampToSpec(value: number, spec: ParamSpec): number {
+  const min = spec.min ?? value;
+  const max = spec.max ?? value;
+  return Math.min(max, Math.max(min, value));
+}
+
+registerAnimation(glitchAnimation);
 registerAnimation(gridRevealSpreadAnimation);
+registerAnimation(tapRevealAnimation);
 registerAnimation(videoPlayerAnimation);
+registerAnimation(wipeRevealAnimation);
