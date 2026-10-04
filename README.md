@@ -19,13 +19,25 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 ### 图片开场动画
 
-![图片开场动画1](docs/pic/export-1791044351465.gif)
+**tap-reveal**
 
-![图片开场动画2](docs/pic/export-1791044351465_1.gif)
+![tap-reveal](docs/pic/3.gif)
+
+**wipe-reveal**
+
+![wipe-reveal](docs/pic/4.gif)
+
+**glitch**
+
+![glitch](docs/pic/1.gif)
+
+**grid-reveal-spread**
+
+![grid-reveal-spread](docs/pic/2.gif)
 
 ### 视频开场动画
 
-![视频开场动画](docs/pic/export-1791044351465_2.gif)
+![视频开场动画](docs/pic/5.gif)
 
 ## 构建
 
