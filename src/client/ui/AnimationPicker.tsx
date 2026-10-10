@@ -72,6 +72,14 @@ export function AnimationPicker({ t, kind, value, paramOverrides, onChange, onPa
                       })
                     }
                   />
+                ) : spec.type === "string" ? (
+                  <input
+                    type="text"
+                    value={String(params[key] ?? spec.default)}
+                    onChange={(event) => {
+                      if (active !== undefined) onParam(active.id, key, event.target.value);
+                    }}
+                  />
                 ) : (
                   <select
                     value={String(params[key] ?? spec.default)}

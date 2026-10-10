@@ -75,6 +75,7 @@ export class GridRevealSpreadEngine implements AnimationController {
 
   private readonly onImgLoad = (): void => {
     if (this.destroyed) return;
+    this.runtime.markLoaded?.();
     whenDecoded(this.img, () => {
       if (this.destroyed) return;
       if (this.fixedBg === "") this.fixedBg = extractDominantColor(this.img);

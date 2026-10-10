@@ -42,6 +42,7 @@ export class WipeRevealEngine implements AnimationController {
 
   private readonly onImgLoad = (): void => {
     if (this.destroyed) return;
+    this.runtime.markLoaded?.();
     whenDecoded(this.img, () => {
       if (this.destroyed) return;
       this.root.style.background = extractDominantColor(this.img);

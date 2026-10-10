@@ -26,6 +26,7 @@ describe("animation registry", () => {
   it("resolves built-in animations by id and kind", () => {
     expect(resolveAnimation("image", "glitch")?.id).toBe("glitch");
     expect(resolveAnimation("image", "grid-reveal-spread")?.id).toBe("grid-reveal-spread");
+    expect(resolveAnimation("image", "retro-boot")?.id).toBe("retro-boot");
     expect(resolveAnimation("image", "tap-reveal")?.id).toBe("tap-reveal");
     expect(resolveAnimation("image", "wipe-reveal")?.id).toBe("wipe-reveal");
     expect(resolveAnimation("video", "video-player")?.id).toBe("video-player");
@@ -42,6 +43,7 @@ describe("animation registry", () => {
   it("lists animations filtered by kind", () => {
     const ids = listAnimations().map((animation) => animation.id);
     expect(ids).toContain("glitch");
+    expect(ids).toContain("retro-boot");
     expect(ids).toContain("tap-reveal");
     expect(ids).toContain("wipe-reveal");
     expect(listAnimations("video").map((animation) => animation.id)).toEqual(["video-player"]);

@@ -4,7 +4,9 @@
 // Engines never import React or anything under ui/; ui/ only sees these types.
 
 import { glitchAnimation } from "./animations/glitch";
+import { codeRainAnimation } from "./animations/code-rain";
 import { gridRevealSpreadAnimation } from "./animations/grid-reveal-spread";
+import { retroBootAnimation } from "./animations/retro-boot";
 import { tapRevealAnimation } from "./animations/tap-reveal";
 import { videoPlayerAnimation } from "./animations/video-player";
 import { wipeRevealAnimation } from "./animations/wipe-reveal";
@@ -28,6 +30,10 @@ export interface AnimationRuntime {
   params: Readonly<Record<string, unknown>>;
   /** Locale function bound to this plugin's namespace. */
   t: (key: string) => string;
+  /** Engine calls this once its media is ready, lifting the load-timeout
+   * watchdog — an engine with its own timeline must not be cut off at 8s.
+   * The max-duration watchdog and the fail-open path stay in force. */
+  markLoaded?: () => void;
   /** Natural completion. Idempotent; the host guards re-entry. */
   complete(): void;
   /** Fatal engine error → host runs the fail-open path. */
@@ -46,7 +52,7 @@ export interface AnimationController {
 }
 
 export interface ParamSpec {
-  type: "number" | "enum";
+  type: "number" | "enum" | "string";
   default: number | string;
   min?: number;
   max?: number;
@@ -100,6 +106,8 @@ export function resolveAnimationParams(
       merged[key] = clampToSpec(override, spec);
     } else if (spec.type === "enum" && typeof override === "string" && spec.options?.includes(override) === true) {
       merged[key] = override;
+    } else if (spec.type === "string" && typeof override === "string") {
+      merged[key] = override;
     } else {
       merged[key] = spec.default;
     }
@@ -114,7 +122,9 @@ function clampToSpec(value: number, spec: ParamSpec): number {
 }
 
 registerAnimation(glitchAnimation);
+registerAnimation(codeRainAnimation);
 registerAnimation(gridRevealSpreadAnimation);
+registerAnimation(retroBootAnimation);
 registerAnimation(tapRevealAnimation);
 registerAnimation(videoPlayerAnimation);
 registerAnimation(wipeRevealAnimation);

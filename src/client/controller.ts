@@ -339,11 +339,13 @@ export class OpeningController {
     this.persist();
   }
 
-  /** Replay the current configuration immediately (independent of the once-per-document guard). */
+  /** Replay the current configuration immediately (independent of the once-per-document guard).
+   * A preview is an explicit request to watch the animation, so it plays even under
+   * prefers-reduced-motion; only the unattended startup playback honors the setting. */
   preview(): void {
     if (this.disposed || this.activeRunner !== undefined) return;
     if (this.snapshot.activeId === undefined) return;
-    this.playOnce();
+    this.playOnce(true);
   }
 
   dispose(): void {
@@ -358,7 +360,7 @@ export class OpeningController {
     this.listeners.clear();
   }
 
-  private playOnce(): void {
+  private playOnce(forceMotion = false): void {
     if (this.disposed || this.activeRunner !== undefined) return;
     const snapshot = this.snapshot;
     const activeId = snapshot.activeId;
@@ -385,7 +387,7 @@ export class OpeningController {
       this.teardownPending();
       return;
     }
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches && !forceMotion;
     this.publish({ ...snapshot, playing: true });
     const runner = new OverlayRunner({
       animation,

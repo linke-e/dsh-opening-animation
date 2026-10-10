@@ -45,6 +45,7 @@ export class OverlayRunner {
   private phase: "idle" | "playing" | "transition" | "destroyed" = "idle";
   private transitionStarted = false;
   private readonly timers = new Set<number>();
+  private loadTimeoutTimer: number | null = null;
   private capturedRootInline: CapturedRootInline | null = null;
   private videoProgressAt = 0;
 
@@ -94,7 +95,7 @@ export class OverlayRunner {
     document.addEventListener("keydown", this.onKeydown);
 
     // Watchdogs. Any fire hands the screen back; the transition guard makes them one-shot.
-    this.setTimer(() => this.fireLoadTimeout(), LOAD_TIMEOUT_MS);
+    this.loadTimeoutTimer = this.setTimer(() => this.fireLoadTimeout(), LOAD_TIMEOUT_MS);
     if (this.opts.media.kind === "image") {
       this.setTimer(() => this.fireMaxDuration(), this.opts.maxDurationMs);
     } else {
@@ -108,6 +109,7 @@ export class OverlayRunner {
       reducedMotion: this.opts.reducedMotion,
       params: this.opts.params,
       t: this.opts.t,
+      markLoaded: () => this.markLoaded(),
       complete: () => this.handleComplete(),
       fail: (err: unknown) => this.handleFail(err),
     };
@@ -116,6 +118,16 @@ export class OverlayRunner {
       this.engine.start();
     } catch (err) {
       this.handleFail(err);
+    }
+  }
+
+  /** Engine-reported media readiness: the load-timeout watchdog is no longer
+   * needed, while the max-duration watchdog keeps guarding runaway engines. */
+  markLoaded(): void {
+    if (this.loadTimeoutTimer !== null) {
+      window.clearTimeout(this.loadTimeoutTimer);
+      this.timers.delete(this.loadTimeoutTimer);
+      this.loadTimeoutTimer = null;
     }
   }
 
