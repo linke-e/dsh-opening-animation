@@ -3,7 +3,7 @@
 // settings UI are driven entirely by the registry (ADR-003).
 // Engines never import React or anything under ui/; ui/ only sees these types.
 
-import { glitchAnimation } from "./animations/glitch";
+import { poolAnimation } from "./animations/pool";
 import { codeRainAnimation } from "./animations/code-rain";
 import { gridRevealSpreadAnimation } from "./animations/grid-reveal-spread";
 import { retroBootAnimation } from "./animations/retro-boot";
@@ -61,11 +61,11 @@ export interface ParamSpec {
 }
 
 export interface OpeningAnimation {
-  /** "glitch" | "grid-reveal-spread" | "tap-reveal" | "video-player" | "wipe-reveal" | ... */
+  /** "pool" | "grid-reveal-spread" | "tap-reveal" | "video-player" | "wipe-reveal" | ... */
   id: string;
   /** Which media kind this animation consumes. */
   kind: MediaKind;
-  /** Locale key inside this plugin's namespace, e.g. "anim.glitch.label". */
+  /** Locale key inside this plugin's namespace, e.g. "anim.pool.label". */
   labelKey: string;
   descriptionKey?: string;
   /** Advanced parameters; the settings AnimationPicker renders them from this schema. */
@@ -121,7 +121,7 @@ function clampToSpec(value: number, spec: ParamSpec): number {
   return Math.min(max, Math.max(min, value));
 }
 
-registerAnimation(glitchAnimation);
+registerAnimation(poolAnimation);
 registerAnimation(codeRainAnimation);
 registerAnimation(gridRevealSpreadAnimation);
 registerAnimation(retroBootAnimation);

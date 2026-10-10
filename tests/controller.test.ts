@@ -127,8 +127,8 @@ describe("OpeningController snapshots", () => {
     expect(controller.getSnapshot().transitionScale).toBe(2);
     controller.setMaxDuration(1);
     expect(controller.getSnapshot().maxDurationMs).toBe(3000);
-    controller.setParam("glitch", "durationMs", 8000);
-    expect(controller.getSnapshot().paramOverrides["glitch"]?.durationMs).toBe(8000);
+    controller.setParam("pool", "durationMs", 8000);
+    expect(controller.getSnapshot().paramOverrides["pool"]?.durationMs).toBe(8000);
   });
 
   it("reports a storage error and un-pends when IndexedDB is unavailable", async () => {

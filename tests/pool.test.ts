@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CAPTION,
-  glitchAnimation,
-  GlitchEngine,
   karaokeStepMs,
-  kenBurns,
   parseCaption,
-  rollGlitchBands,
-  waveOffset,
-} from "../src/client/animations/glitch";
+  PoolEngine,
+  poolAnimation,
+  splashWaterField,
+  stepWaterField,
+} from "../src/client/animations/pool";
 import { resolveAnimationParams } from "../src/client/registry";
 
 function makeRuntime(params: Readonly<Record<string, unknown>> = {}, reducedMotion = false) {
@@ -34,7 +33,7 @@ function makeRuntime(params: Readonly<Record<string, unknown>> = {}, reducedMoti
   };
 }
 
-describe("glitch caption parsing", () => {
+describe("pool caption parsing", () => {
   it("splits lines and marks bracketed words as highlights", () => {
     const lines = parseCaption("My [finger] rests [upon] ink,\na [silent] [testament].");
     expect(lines.length).toBe(2);
@@ -64,77 +63,64 @@ describe("glitch caption parsing", () => {
   });
 });
 
-describe("glitch camera", () => {
-  it("pushes from 1.02 to 1.08 with a slight rightward drift", () => {
-    expect(kenBurns(0)).toEqual({ zoom: 1.02, shift: 0 });
-    expect(kenBurns(1)).toEqual({ zoom: 1.08, shift: 0.025 });
-    expect(kenBurns(0.5).zoom).toBeCloseTo(1.05, 10);
-    expect(kenBurns(2)).toEqual(kenBurns(1));
-    expect(kenBurns(-1)).toEqual(kenBurns(0));
+describe("water field", () => {
+  const W = 9;
+  const H = 7;
+
+  it("keeps a flat field flat through a step", () => {
+    const prev = new Float32Array(W * H);
+    const cur = new Float32Array(W * H);
+    stepWaterField(prev, cur, W, H, 0.985);
+    for (let i = 0; i < prev.length; i++) expect(prev[i]).toBe(0);
   });
-});
 
-describe("vhs tracking wave", () => {
-  const cfg = { lambda: 120, crests: 2, topAmp: 11 };
+  it("spreads a single cell to its four neighbors in one step", () => {
+    const prev = new Float32Array(W * H);
+    const cur = new Float32Array(W * H);
+    const c = 3 * W + 4; // interior cell
+    cur[c] = 1;
+    stepWaterField(prev, cur, W, H, 0.985);
+    expect(prev[c - 1]).not.toBe(0);
+    expect(prev[c + 1]).not.toBe(0);
+    expect(prev[c - W]).not.toBe(0);
+    expect(prev[c + W]).not.toBe(0);
+  });
 
-  it("pushes hardest at the top and dies out at the bottom", () => {
-    let topMax = 0;
-    let bottomMax = 0;
-    for (let i = 0; i <= 300; i++) {
-      const t = (i / 300) * 3; // 3 s covers several crest passes
-      topMax = Math.max(topMax, Math.abs(waveOffset(1080, 1080, t, cfg).dy));
-      bottomMax = Math.max(bottomMax, Math.abs(waveOffset(10, 1080, t, cfg).dy));
+  it("splash leaves cells outside the radius untouched", () => {
+    const field = new Float32Array(W * H);
+    splashWaterField(field, W, H, 4, 3, 2, 1.2);
+    // Nearest corner cells beyond the splash circle (distance √8 > 2).
+    expect(field[5 * W + 6]).toBe(0);
+    expect(field[1 * W + 2]).toBe(0);
+    // Inside the circle the Gaussian kernel does inject (float32 precision).
+    expect(field[3 * W + 4]).toBeCloseTo(1.2, 5);
+  });
+
+  it("leaves the field unchanged when strength is 0", () => {
+    const field = new Float32Array(W * H);
+    splashWaterField(field, W, H, 4, 3, 2, 0);
+    for (let i = 0; i < field.length; i++) expect(field[i]).toBe(0);
+  });
+
+  it("damps instead of diverging: 60 steps peak strictly below the initial peak", () => {
+    let prev = new Float32Array(W * H);
+    let cur = new Float32Array(W * H);
+    splashWaterField(cur, W, H, 4, 3, 2, 1.2);
+    let peak = 0;
+    for (let i = 0; i < cur.length; i++) peak = Math.max(peak, Math.abs(cur[i]!));
+    for (let s = 0; s < 60; s++) {
+      stepWaterField(prev, cur, W, H, 0.985);
+      const tmp = prev;
+      prev = cur;
+      cur = tmp;
     }
-    expect(topMax).toBeGreaterThan(8); // ±8–15 px envelope at the top edge
-    expect(topMax).toBeLessThanOrEqual(13.1); // topAmp + breath 2
-    expect(bottomMax).toBeLessThanOrEqual(2.05); // breath only near the bottom
-  });
-
-  it("travels upward: a crest reaches half a wavelength higher a quarter period later", () => {
-    // depth and depth+lambda share the same phase family (spatial period), so
-    // compare half a wavelength apart instead: the crest must arrive later
-    // the higher it is — the wave climbs from the bottom edge.
-    const firstCrest = (depth: number) => {
-      for (let i = 0; i < 900; i++) {
-        const t = (i / 900) * 3;
-        if (waveOffset(depth, 1080, t, cfg).dy > 8) return t; // near-crest only
-      }
-      return Number.NaN;
-    };
-    const t1 = firstCrest(900);
-    const t2 = firstCrest(900 + cfg.lambda / 2);
-    expect(t1).toBeGreaterThan(0);
-    expect(t2 - t1).toBeCloseTo(1 / (2 * cfg.crests), 1); // a quarter second later
+    let last = 0;
+    for (let i = 0; i < cur.length; i++) last = Math.max(last, Math.abs(cur[i]!));
+    expect(last).toBeLessThan(peak);
   });
 });
 
-describe("glitch burst bands", () => {
-  it("rolls 3-5 distinct bands of eight with jittered shifts and occasional shear", () => {
-    let skewed = 0;
-    for (let i = 0; i < 80; i++) {
-      const bands = rollGlitchBands();
-      expect(bands.length).toBeGreaterThanOrEqual(3);
-      expect(bands.length).toBeLessThanOrEqual(5);
-      const seen = new Set<number>();
-      for (const band of bands) {
-        expect(band.index).toBeGreaterThanOrEqual(0);
-        expect(band.index).toBeLessThanOrEqual(7);
-        expect(seen.has(band.index)).toBe(false);
-        seen.add(band.index);
-        expect(Math.abs(band.dx)).toBeGreaterThanOrEqual(5);
-        expect(Math.abs(band.dx)).toBeLessThanOrEqual(34);
-        expect(Number.isInteger(band.dx)).toBe(true);
-        if (band.skew === 0) continue;
-        skewed += 1;
-        expect(Math.abs(band.skew)).toBeGreaterThanOrEqual(0.09);
-        expect(Math.abs(band.skew)).toBeLessThanOrEqual(0.3);
-      }
-    }
-    expect(skewed).toBeGreaterThan(0); // shearing does occur across rolls
-  });
-});
-
-describe("glitch karaoke step", () => {
+describe("pool karaoke step", () => {
   it("keeps a leisurely pace when the budget allows, and speeds up to fit when tight", () => {
     const words = 13;
     expect(karaokeStepMs(20_000, words)).toBe(900); // 18 s budget → cap at 900 ms
@@ -144,26 +130,31 @@ describe("glitch karaoke step", () => {
   });
 });
 
-describe("glitch params", () => {
+describe("pool params", () => {
   it("defaults caption text and font, and accepts string overrides", () => {
-    const d = resolveAnimationParams(glitchAnimation);
+    const d = resolveAnimationParams(poolAnimation);
     expect(d.durationMs).toBe(20_000);
+    expect(d.rippleStrength).toBe(1);
     expect(d.caption).toBe(DEFAULT_CAPTION);
     expect(typeof d.captionFont).toBe("string");
     expect(String(d.captionFont).length).toBeGreaterThan(0);
-    const o = resolveAnimationParams(glitchAnimation, {
+    const o = resolveAnimationParams(poolAnimation, {
       caption: "自定义\n[文本]",
       captionFont: "Georgia, serif",
     });
     expect(o.caption).toBe("自定义\n[文本]");
     expect(o.captionFont).toBe("Georgia, serif");
   });
+
+  it("clamps ripple strength overrides to the schema range", () => {
+    expect(resolveAnimationParams(poolAnimation, { rippleStrength: 99 }).rippleStrength).toBe(3);
+  });
 });
 
-describe("glitch engine lifecycle (jsdom, no 2d context)", () => {
+describe("pool engine lifecycle (jsdom, no 2d context)", () => {
   it("constructs, starts and skips to completion without throwing on a null context", () => {
     const { runtime, calls } = makeRuntime();
-    const engine = new GlitchEngine(runtime);
+    const engine = new PoolEngine(runtime);
     expect(() => engine.start()).not.toThrow();
     expect(calls.complete).toBe(0);
     engine.skip();
@@ -175,7 +166,7 @@ describe("glitch engine lifecycle (jsdom, no 2d context)", () => {
 
   it("reports readiness and completes exactly once on reduced motion at image load", () => {
     const { runtime, calls } = makeRuntime({}, true);
-    const engine = new GlitchEngine(runtime);
+    const engine = new PoolEngine(runtime);
     engine.start();
     const img = Reflect.get(engine, "img") as HTMLImageElement;
     Object.defineProperty(img, "complete", { value: true, configurable: true });
@@ -190,7 +181,7 @@ describe("glitch engine lifecycle (jsdom, no 2d context)", () => {
 
   it("fails the run when the image errors, and destroy stops further callbacks", () => {
     const { runtime, calls } = makeRuntime();
-    const engine = new GlitchEngine(runtime);
+    const engine = new PoolEngine(runtime);
     engine.start();
     const img = Reflect.get(engine, "img") as HTMLImageElement;
     img.dispatchEvent(new Event("error"));
