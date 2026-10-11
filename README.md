@@ -42,9 +42,11 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 **retro-boot**
 
-![retro-boot](docs/pic/retro-boot-assets.gif)
+![retro-boot](docs/pic/retro-boot.gif)
 
 **code-rain**
+
+![coderain](docs/pic/CodeRain.gif)
 
 独立可视化原型（单文件、内嵌素材、支持 `?t=<秒>` 冻结单帧）：[docs/retro-boot.html](docs/retro-boot.html)
 

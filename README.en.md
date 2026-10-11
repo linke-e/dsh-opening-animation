@@ -42,9 +42,11 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 **retro-boot**
 
-![retro-boot](docs/pic/retro-boot-assets.gif)
+![retro-boot](docs/pic/retro-boot.gif)
 
 **code-rain**
+
+![code-rain](docs/pic/CodeRain.gif)
 
 A standalone visual prototype (single file, embedded assets, supports `?t=<seconds>` to freeze one frame): [docs/retro-boot.html](docs/retro-boot.html)
 
