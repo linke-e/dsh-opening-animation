@@ -1,4 +1,6 @@
-import type { OpeningController, OpeningError, OpeningSnapshot } from "../controller";
+import { useSyncExternalStore } from "react";
+import { MAX_MEDIA, type OpeningController, type OpeningError, type OpeningSnapshot } from "../controller";
+import { MAX_IMAGE_PIXELS } from "../media-probe";
 import type { MediaKind } from "../registry";
 import { AnimationPicker } from "./AnimationPicker";
 import { BehaviorControls } from "./BehaviorControls";
@@ -6,10 +8,55 @@ import { MediaDropZone } from "./MediaDropZone";
 import { MediaGrid } from "./MediaGrid";
 import { TransitionPicker } from "./TransitionPicker";
 
+/** Shape of the host locale service (subset this page consumes; the full
+ * object arrives as a prop via slots.register's inject, same as dsh-custom-skin). */
+interface LocaleController {
+  getSnapshot: () => { active: string; locales: ReadonlyArray<{ id: string; label: string }> };
+  subscribe: (listener: () => void) => () => void;
+  setLocale: (id: string) => void;
+}
+
 interface OpeningSectionProps {
   t: (key: string) => string;
   useOpening: (selector: (snapshot: OpeningSnapshot) => unknown) => unknown;
   controller: OpeningController;
+  /** Absent only if the host locale service ever stops being injected. */
+  locale?: LocaleController;
+}
+
+/** Language picker for the whole DSH Web interface; this page's dictionary is
+ * plugin-registered, so every string here follows the host language. */
+function LanguagePicker({ t, locale }: { t: (key: string) => string; locale: LocaleController }) {
+  // Arrow wrappers keep the host object bound as `this` (same as dsh-custom-skin).
+  const snapshot = useSyncExternalStore(
+    (listener) => locale.subscribe(listener),
+    () => locale.getSnapshot(),
+    () => locale.getSnapshot(),
+  );
+  return (
+    <label className="dsh-opening-language">
+      <span className="dsh-opening-toggle-copy">
+        <span>{t("language")}</span>
+        <small className="dsh-opening-note">{t("languageHint")}</small>
+      </span>
+      <select
+        aria-label={t("language")}
+        value={snapshot.active}
+        onChange={(event) => locale.setLocale(event.target.value)}
+      >
+        {snapshot.locales.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Substitute {name} placeholders in a locale template. */
+function fill(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) => (key in values ? String(values[key]) : match));
 }
 
 function errorKey(error: OpeningError): string {
@@ -22,10 +69,14 @@ function errorKey(error: OpeningError): string {
       return "codecError";
     case "mutation":
       return "mutationError";
+    case "capacity":
+      return "capacityError";
+    case "quota":
+      return "quotaError";
   }
 }
 
-export function OpeningSection({ t, useOpening, controller }: OpeningSectionProps) {
+export function OpeningSection({ t, useOpening, controller, locale }: OpeningSectionProps) {
   const state = useOpening((snapshot) => snapshot) as OpeningSnapshot;
   const kind: MediaKind = state.activeKind ?? "image";
   const remove = (id: string): void => {
@@ -40,10 +91,20 @@ export function OpeningSection({ t, useOpening, controller }: OpeningSectionProp
         <h2>{t("title")}</h2>
         <p className="dsh-opening-intro">{t("intro")}</p>
       </div>
+      {locale !== undefined && <LanguagePicker t={t} locale={locale} />}
       <MediaDropZone t={t} disabled={!state.ready} onAdd={(files) => void controller.addFiles(files)} />
       {state.error !== undefined && (
         <p className="dsh-opening-error" role="alert">
-          {t(errorKey(state.error))}
+          {fill(t(errorKey(state.error)), { max: MAX_MEDIA, maxPixels: MAX_IMAGE_PIXELS })}
+        </p>
+      )}
+      {state.importSummary !== undefined && (
+        <p className="dsh-opening-note" role="status">
+          {fill(t("importPartial"), {
+            imported: state.importSummary.imported,
+            skipped: state.importSummary.skipped,
+            max: MAX_MEDIA,
+          })}
         </p>
       )}
       {!state.ready ? (

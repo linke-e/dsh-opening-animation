@@ -67,3 +67,61 @@ describe("OverlayRunner load-timeout watchdog", () => {
     runner.destroy();
   });
 });
+
+/** A video-kind runner with a bare <video> in the stage; the watchdog reads
+ * readyState/ended off this element and timeupdate via the stage capture
+ * listener. The engine reports readiness so the load timeout stays out of the
+ * way and the assertions land on the stall watchdog. */
+function mountVideoRunner(): OverlayRunner {
+  const runner = new OverlayRunner({
+    animation: neverEndingAnimation(true),
+    media: { url: "data:video/mp4;base64,AAAA", kind: "video", mime: "video/mp4", name: "t.mp4" },
+    transition: getTransition("cross-fade"),
+    transitionScale: 1,
+    maxDurationMs: 60_000,
+    showSkipHint: false,
+    reducedMotion: false,
+    params: {},
+    t: (key) => key,
+    onDone: () => {},
+  });
+  runner.mount();
+  const stage = document.querySelector(".dsh-opening-stage") as HTMLElement;
+  stage.append(document.createElement("video"));
+  return runner;
+}
+
+describe("OverlayRunner video stall watchdog", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    document.querySelectorAll(".dsh-opening-root").forEach((el) => el.remove());
+    delete document.body.dataset.dshOpening;
+  });
+
+  it("hands back when timeupdate stops, even with readyState dropped below HAVE_CURRENT_DATA", () => {
+    const runner = mountVideoRunner();
+    const video = document.querySelector("video") as HTMLVideoElement;
+    video.dispatchEvent(new Event("timeupdate"));
+    vi.advanceTimersByTime(1_000);
+    video.dispatchEvent(new Event("timeupdate"));
+    // playback stalls and the element drops to HAVE_NOTHING
+    Object.defineProperty(video, "readyState", { value: 0 });
+    vi.advanceTimersByTime(11_000);
+    expect(document.querySelector(".dsh-opening-root.dsh-opening-exit-cross-fade")).not.toBeNull();
+    runner.destroy();
+  });
+
+  it("keeps playing while timeupdate keeps firing", () => {
+    const runner = mountVideoRunner();
+    const video = document.querySelector("video") as HTMLVideoElement;
+    for (let elapsed = 0; elapsed <= 15; elapsed += 1) {
+      video.dispatchEvent(new Event("timeupdate"));
+      vi.advanceTimersByTime(1_000);
+    }
+    expect(document.querySelector(".dsh-opening-root.dsh-opening-exit-cross-fade")).toBeNull();
+    runner.destroy();
+  });
+});

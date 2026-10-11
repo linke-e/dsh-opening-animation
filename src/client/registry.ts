@@ -5,6 +5,8 @@
 
 import { poolAnimation } from "./animations/pool";
 import { codeRainAnimation } from "./animations/code-rain";
+import { glassAnimation } from "./animations/glass";
+import { glitch404Animation } from "./animations/glitch-404";
 import { gridRevealSpreadAnimation } from "./animations/grid-reveal-spread";
 import { retroBootAnimation } from "./animations/retro-boot";
 import { tapRevealAnimation } from "./animations/tap-reveal";
@@ -123,6 +125,8 @@ function clampToSpec(value: number, spec: ParamSpec): number {
 
 registerAnimation(poolAnimation);
 registerAnimation(codeRainAnimation);
+registerAnimation(glassAnimation);
+registerAnimation(glitch404Animation);
 registerAnimation(gridRevealSpreadAnimation);
 registerAnimation(retroBootAnimation);
 registerAnimation(tapRevealAnimation);

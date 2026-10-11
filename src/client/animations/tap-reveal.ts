@@ -3,8 +3,9 @@
 // click (anywhere) renders the picture with the vendored material-vcard
 // animation: a clip-path circle expanding from the click point, with the
 // picture easing from a slight zoom like the card's columns sliding in.
-// The engine swallows that first click (stopPropagation) so the OverlayRunner's
-// click-to-skip never fires for it; Esc still skips. transitionend (with a
+// The engine swallows only that first click (stopPropagation) — clicks before
+// the picture has decoded are swallowed too — and every later click bubbles to
+// the OverlayRunner's click-to-skip; Esc skips as well. transitionend (with a
 // timeout backstop) calls runtime.complete() and the transition fades the UI in.
 // Reduced motion renders the full picture immediately.
 
@@ -51,9 +52,13 @@ export class TapRevealEngine implements AnimationController {
   };
 
   private readonly onClick = (event: MouseEvent): void => {
+    if (this.destroyed || this.completed) return;
     // The first click reveals the picture instead of skipping the opening.
+    // Once the reveal has started, clicks stop being swallowed so the
+    // runner's click-to-skip stays honest with the "click anywhere to skip"
+    // hint; during the wait (picture not decoded yet) clicks are swallowed.
+    if (this.revealStarted) return;
     event.stopPropagation();
-    if (this.destroyed || this.completed || this.revealStarted) return;
     if (!(this.img.complete && this.img.naturalWidth > 0)) return;
     this.startReveal(event.clientX, event.clientY);
   };

@@ -14,10 +14,28 @@ import { OpeningSection } from "./ui/OpeningSection";
 
 export const inject = ["slots", "locale"];
 
+/** One selectable language as reported by the host locale service. */
+interface LocaleDefinition {
+  id: string;
+  label: string;
+}
+
+interface LocaleSnapshot {
+  active: string;
+  locales: readonly LocaleDefinition[];
+  revision: number;
+}
+
 interface ClientContext {
   locale: {
     bind: (ns: string) => (key: string) => string;
     register: (ns: string, dictionaries: Record<string, Record<string, string>>) => unknown;
+    /** Host language controller: the settings Language picker switches the
+     * whole DSH Web interface (dictionaries are plugin-registered, so this
+     * page follows automatically). Same shape dsh-custom-skin consumes. */
+    getSnapshot: () => LocaleSnapshot;
+    subscribe: (listener: () => void) => () => void;
+    setLocale: (id: string) => void;
   };
   slots: {
     inject: (slot: string, register: () => unknown) => unknown;
@@ -67,7 +85,7 @@ export function apply(ctx: ClientContext): void {
         order: 13,
         label: () => t("nav"),
         locale: NS,
-        inject: () => ({ controller, hooks: { opening: controller } }),
+        inject: () => ({ controller, locale: ctx.locale, hooks: { opening: controller } }),
       },
       OpeningSection,
     ),

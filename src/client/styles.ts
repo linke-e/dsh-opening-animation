@@ -146,6 +146,256 @@ export const GLOBAL_STYLES = String.raw`
   50% { transform: translate(-50%, -50%) scale(1.06); }
 }
 
+/* ---- glitch-404 engine: a faithful remake of the "404glitched-out" piece —
+   the user's picture stands in for the black backdrop, everything else
+   follows the reference: the code block container and the info line warp on
+   the noise-3 beat, and each strobe line flickers as a ghost pair through
+   noise-1/noise-2. The finale sinks the screen into black. ---- */
+.dsh-opening-g404 {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--dsh-opening-bg, #04050e);
+  color: #fff;
+  user-select: none;
+}
+.dsh-opening-g404-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Dark veil over the picture so the strobe lines stay readable on colorful
+   pictures; 0 = the reference's look (text directly on the backdrop). */
+.dsh-opening-g404-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #000;
+}
+/* .error: code block container, warped by noise-3 like the reference */
+.dsh-opening-g404-error {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60px;
+  right: 0;
+  width: 100%;
+  height: 120px;
+  margin: auto;
+  text-align: center;
+  pointer-events: none;
+}
+.dsh-opening-g404.dsh-opening-g404-run .dsh-opening-g404-error {
+  animation: dsh-opening-g404-noise-3 1s linear infinite;
+}
+.dsh-opening-g404-wrap {
+  position: absolute;
+  top: 30%;
+  left: 25%;
+  height: 200px;
+  margin-top: -100px;
+}
+.dsh-opening-g404-code {
+  color: var(--dsh-g404-text, #fff);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "JetBrains Mono", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+.dsh-opening-g404-code pre {
+  margin: 0;
+}
+.dsh-opening-g404-code .dsh-orange { color: #f39c12; }
+.dsh-opening-g404-code .dsh-green { color: #33cc33; }
+.dsh-opening-g404-code .dsh-blue { color: #48beef; }
+.dsh-opening-g404-code .dsh-comment { color: #7f8c8d; }
+/* .info: the second strobe line's positioning box, warped as well */
+.dsh-opening-g404-info {
+  position: absolute;
+  top: 280px;
+  bottom: 0;
+  left: 20px;
+  right: 0;
+  width: 200px;
+  height: 60px;
+  margin: auto;
+  text-align: center;
+  display: block;
+}
+.dsh-opening-g404.dsh-opening-g404-run .dsh-opening-g404-info {
+  animation: dsh-opening-g404-noise-3 1s linear infinite;
+}
+/* body:before/after counterpart: the main line's positioning box */
+.dsh-opening-g404-main {
+  position: absolute;
+  top: 25%;
+  bottom: 0;
+  left: 0;
+  right: 35%;
+  width: 550px;
+  margin: auto;
+  text-align: center;
+  pointer-events: none;
+}
+.dsh-opening-g404-ghost {
+  position: absolute;
+  color: var(--dsh-g404-text, #fff);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "JetBrains Mono", monospace;
+  font-size: 100px;
+  line-height: 1.15;
+  white-space: nowrap;
+  opacity: 0;
+  will-change: opacity, left;
+}
+.dsh-opening-g404-main .dsh-opening-g404-ghost {
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+/* The reference's info pair sits apart (right:100px vs right:0) — a static
+   50px offset on top of the strobe jumps. */
+.dsh-opening-g404-sub-ghost-a {
+  top: 20px;
+  left: 40px;
+  right: 100px;
+  width: 800px;
+  margin: auto;
+}
+.dsh-opening-g404-sub-ghost-b {
+  top: 20px;
+  left: 40px;
+  right: 0;
+  width: 800px;
+  margin: auto;
+}
+.dsh-opening-g404.dsh-opening-g404-run .dsh-opening-g404-ghost-a {
+  animation: dsh-opening-g404-noise-1 0.2s linear infinite;
+}
+.dsh-opening-g404.dsh-opening-g404-run .dsh-opening-g404-ghost-b {
+  animation: dsh-opening-g404-noise-2 0.2s linear infinite;
+}
+/* The reference's strobe keyframes: mostly invisible, briefly bright while
+   jumping sideways — pair a and b offset in opposite directions. */
+@keyframes dsh-opening-g404-noise-1 {
+  0%, 20%, 40%, 60%, 70%, 90% { opacity: 0; }
+  10% { opacity: 0.1; }
+  50% { opacity: 0.5; left: -6px; }
+  80% { opacity: 0.3; }
+  100% { opacity: 0.6; left: 2px; }
+}
+@keyframes dsh-opening-g404-noise-2 {
+  0%, 20%, 40%, 60%, 70%, 90% { opacity: 0; }
+  10% { opacity: 0.1; }
+  50% { opacity: 0.5; left: 6px; }
+  80% { opacity: 0.3; }
+  100% { opacity: 0.6; left: -2px; }
+}
+/* The reference's noise-3 warp on the error block and the info line. */
+@keyframes dsh-opening-g404-noise-3 {
+  0%, 3%, 5%, 42%, 44%, 100% { opacity: 1; transform: scaleY(1); }
+  4.3% { opacity: 1; transform: scaleY(4); }
+  43% { opacity: 1; transform: scaleX(10) rotate(60deg); }
+}
+/* Black-out finale veil; the outro class also stops every reference
+   animation so the black frame is truly still. */
+.dsh-opening-g404-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+.dsh-opening-g404.dsh-opening-g404-outro .dsh-opening-g404-error,
+.dsh-opening-g404.dsh-opening-g404-outro .dsh-opening-g404-info,
+.dsh-opening-g404.dsh-opening-g404-outro .dsh-opening-g404-ghost {
+  animation: none;
+}
+
+/* ---- glass engine: a frosted lock screen (its own background image, or the
+   active picture) over the user's picture — dark tint plus backdrop blur,
+   big clock and local date at center, pulsing hint at the bottom. The
+   unlocked class slides the whole lock screen up, revealing the picture
+   beneath; reduced keeps a static frame. ---- */
+.dsh-opening-glass {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--dsh-opening-bg, #04050e);
+}
+.dsh-opening-glass-under {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dsh-opening-glass-screen {
+  position: absolute;
+  inset: 0;
+  transition: transform 600ms cubic-bezier(0.85, 0, 0.15, 1);
+}
+.dsh-opening-glass.dsh-opening-glass-reduced .dsh-opening-glass-screen { transition: none; }
+.dsh-opening-glass-screen.dsh-opening-glass-unlocked { transform: translateY(-100%); }
+.dsh-opening-glass-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dsh-opening-glass-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.dsh-opening-glass-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-align: center;
+}
+.dsh-opening-glass-clock {
+  font-size: clamp(64px, 13vh, 160px);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+.dsh-opening-glass-date {
+  margin-top: 10px;
+  font-size: clamp(18px, 3vh, 30px);
+  font-weight: 300;
+  opacity: 0.9;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+.dsh-opening-glass-hint {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
+  right: 0;
+  color: #fff;
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-align: center;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  animation: dsh-opening-glass-pulse 2s ease-in-out infinite;
+}
+@keyframes dsh-opening-glass-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+.dsh-opening-glass.dsh-opening-glass-reduced .dsh-opening-glass-hint { animation: none; }
+
 body[data-dsh-opening='active'] { overflow: hidden; }
 
 /* ---- settings panel ---- */
@@ -162,6 +412,27 @@ body[data-dsh-opening='active'] { overflow: hidden; }
 .dsh-opening-intro,
 .dsh-opening-note { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 1.55; }
 .dsh-opening-error { color: var(--dsw-alias-state-error-primary); font-size: 13px; }
+
+.dsh-opening-language {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 75%, transparent);
+}
+.dsh-opening-language select {
+  min-width: 132px;
+  height: 34px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--dsw-alias-bg-layer-3);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
 
 .dsh-opening-drop {
   display: flex;
@@ -263,8 +534,13 @@ body[data-dsh-opening='active'] { overflow: hidden; }
   font-size: 13px;
 }
 .dsh-opening-control output { color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
+/* Text, number and select inputs share one token-driven rule: the skin plugin
+   rewrites these --dsw-alias-* tokens around the wallpaper, so parameter text
+   fields (caption, captionFont, textColor, hintText, lockBg) follow the skin
+   and the surrounding panel instead of the browser's native white input. */
 .dsh-opening-control select,
-.dsh-opening-control input[type='number'] {
+.dsh-opening-control input[type='number'],
+.dsh-opening-control input[type='text'] {
   width: 100%;
   height: 34px;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -320,6 +596,8 @@ body[data-dsh-opening='active'] { overflow: hidden; }
 }
 
 @media (max-width: 700px) {
+  .dsh-opening-language { align-items: stretch; flex-direction: column; gap: 10px; }
+  .dsh-opening-language select { width: 100%; }
   .dsh-opening-controls { grid-template-columns: 1fr; }
   .dsh-opening-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

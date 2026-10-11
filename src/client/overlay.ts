@@ -48,6 +48,10 @@ export class OverlayRunner {
   private loadTimeoutTimer: number | null = null;
   private capturedRootInline: CapturedRootInline | null = null;
   private videoProgressAt = 0;
+  /** App root hidden behind the overlay; made inert so keyboard focus cannot
+   * land on invisible controls, restored (with focus) on teardown. */
+  private appRoot: HTMLElement | null = null;
+  private focusedBefore: HTMLElement | null = null;
 
   private readonly onSkipClick = (): void => {
     this.requestSkip();
@@ -78,6 +82,9 @@ export class OverlayRunner {
     );
     const stage = document.createElement("div");
     stage.className = "dsh-opening-stage";
+    // The canvas is pure decoration; keep it out of the accessibility tree
+    // while the skip hint (real text) stays readable.
+    stage.setAttribute("aria-hidden", "true");
     root.append(stage);
     if (this.opts.showSkipHint) {
       const hint = document.createElement("div");
@@ -90,6 +97,13 @@ export class OverlayRunner {
     this.stageEl = stage;
     document.body.append(root);
     document.body.dataset.dshOpening = "active";
+    this.appRoot = document.getElementById("root");
+    if (this.appRoot !== null) {
+      this.appRoot.inert = true;
+      this.focusedBefore = this.appRoot.contains(document.activeElement) && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    }
 
     root.addEventListener("click", this.onSkipClick);
     document.addEventListener("keydown", this.onKeydown);
@@ -160,6 +174,10 @@ export class OverlayRunner {
     delete document.documentElement.dataset.dshOpeningPending;
     removeCriticalStyles();
     this.restoreRootInline();
+    if (this.appRoot !== null) this.appRoot.inert = false;
+    this.appRoot = null;
+    this.focusedBefore?.focus();
+    this.focusedBefore = null;
     URL.revokeObjectURL(this.opts.media.url);
     this.opts.onDone();
   }
@@ -204,7 +222,11 @@ export class OverlayRunner {
   private readonly checkVideoStall = (): void => {
     if (this.transitionStarted || this.phase === "destroyed") return;
     const video = this.stageEl?.querySelector("video");
-    if (video !== undefined && video !== null && video.readyState >= 2 && !video.ended) {
+    // readyState is deliberately not a gate: a video that drops to
+    // HAVE_NOTHING/HAVE_METADATA mid-playback stops firing timeupdate and must
+    // still trip this watchdog. A video that never gets data at all is handed
+    // back by the load timeout instead.
+    if (video !== undefined && video !== null && !video.ended) {
       if (this.videoProgressAt === 0) {
         this.videoProgressAt = Date.now();
       } else if (Date.now() - this.videoProgressAt > VIDEO_STALL_MS) {

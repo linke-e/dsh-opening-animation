@@ -10,6 +10,7 @@ import {
   makeId,
   openDatabase,
   putRecord,
+  requestResult,
   transactionDone,
   type MediaRecord,
   STORE,
@@ -21,6 +22,7 @@ import {
   structuredClonePreferences,
   type OpeningPreferences,
 } from "./preferences";
+import { isImportableImage, MAX_IMAGE_PIXELS } from "./media-probe";
 import {
   listAnimations,
   resolveAnimation,
@@ -31,7 +33,7 @@ import {
 import { removeCriticalStyles } from "./styles";
 import { getTransition } from "./transitions";
 
-export type OpeningError = "storage" | "invalid-file" | "unsupported-codec" | "mutation";
+export type OpeningError = "storage" | "invalid-file" | "unsupported-codec" | "mutation" | "capacity" | "quota";
 
 export interface MediaSummary {
   id: string;
@@ -41,6 +43,13 @@ export interface MediaSummary {
   createdAt: number;
   /** Long-lived object URL for settings thumbnails; owned by the controller. */
   url: string;
+}
+
+/** Result of the last import when the library cap cut it short; cleared by any
+ * other mutation. Rendered via the "importPartial" locale template. */
+export interface ImportSummary {
+  imported: number;
+  skipped: number;
 }
 
 export interface OpeningSnapshot {
@@ -57,10 +66,12 @@ export interface OpeningSnapshot {
   skinHandoff: boolean;
   paramOverrides: Readonly<Record<string, Readonly<Record<string, number | string>>>>;
   playing: boolean;
+  importSummary?: ImportSummary;
   error?: OpeningError;
 }
 
-const MAX_MEDIA = 8;
+/** Library cap; exported for the import-summary locale template. */
+export const MAX_MEDIA = 8;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 256 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
@@ -71,6 +82,12 @@ const SKIN_MAX_IMAGES = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const kindOfType = (type: string): MediaKind => (VIDEO_TYPES.has(type) ? "video" : "image");
+
+/** IndexedDB signals a full storage quota by aborting with this error name
+ * (DOMException in real browsers; plain Error with the same name elsewhere). */
+function isQuotaError(err: unknown): boolean {
+  return err instanceof Error && err.name === "QuotaExceededError";
+}
 
 /** Container-level support plus common codec probes; unsupported encodings are rejected at import time. */
 function videoSupported(type: string): boolean {
@@ -175,14 +192,18 @@ export class OpeningController {
     }
   }
 
-  /** Add files to the local library after type/size/codec validation. */
+  /** Add files to the local library after type/size/decode validation. The
+   * library cap is re-checked inside the write transaction (another tab can
+   * change the store between the snapshot and this write); anything cut by
+   * the cap is reported instead of dropped silently. */
   async addFiles(files: File[]): Promise<void> {
     const accepted: Array<{ file: File; kind: MediaKind }> = [];
     let invalid = false;
     let codecBlocked = false;
     for (const file of files) {
       if (IMAGE_TYPES.has(file.type) && file.size > 0 && file.size <= MAX_IMAGE_BYTES) {
-        accepted.push({ file, kind: "image" });
+        if (await isImportableImage(file)) accepted.push({ file, kind: "image" });
+        else invalid = true;
       } else if (VIDEO_TYPES.has(file.type) && file.size > 0 && file.size <= MAX_VIDEO_BYTES) {
         if (videoSupported(file.type)) accepted.push({ file, kind: "video" });
         else codecBlocked = true;
@@ -203,10 +224,17 @@ export class OpeningController {
         this.publish({ ...this.snapshot, error: "storage" });
         return;
       }
-      const capacity = Math.max(0, MAX_MEDIA - this.snapshot.media.length);
+      const transaction = this.database.transaction(STORE, "readwrite");
+      const store = transaction.objectStore(STORE);
+      const storedCount = await requestResult(store.count());
+      const capacity = Math.max(0, MAX_MEDIA - storedCount);
       const batch = accepted.slice(0, capacity);
+      const skippedCapacity = accepted.length - batch.length;
       if (batch.length === 0) {
-        this.publish({ ...this.snapshot, error: "invalid-file" });
+        this.publish({
+          ...this.snapshot,
+          error: skipped ? (codecError ? "unsupported-codec" : "invalid-file") : "capacity",
+        });
         return;
       }
       const records: MediaRecord[] = batch.map(({ file }, index) => ({
@@ -216,8 +244,7 @@ export class OpeningController {
         blob: file,
         createdAt: Date.now() + index,
       }));
-      const transaction = this.database.transaction(STORE, "readwrite");
-      for (const record of records) transaction.objectStore(STORE).put(record);
+      for (const record of records) store.put(record);
       await transactionDone(transaction);
       const added = records.map((record) => {
         this.records.set(record.id, record);
@@ -235,6 +262,7 @@ export class OpeningController {
         ...this.snapshot,
         media: [...added, ...this.snapshot.media],
         activeId: this.snapshot.activeId ?? first?.id,
+        importSummary: skippedCapacity > 0 ? { imported: batch.length, skipped: skippedCapacity } : undefined,
         error: skipped ? (codecError ? "unsupported-codec" : "invalid-file") : undefined,
       });
       this.persist();
@@ -334,6 +362,7 @@ export class OpeningController {
       showSkipHint: defaults.showSkipHint,
       skinHandoff: defaults.skinHandoff,
       paramOverrides: defaults.paramOverrides,
+      importSummary: undefined,
       error: undefined,
     });
     this.persist();
@@ -466,20 +495,23 @@ export class OpeningController {
   }
 
   private update(patch: Partial<OpeningSnapshot>): void {
-    this.publish({ ...this.snapshot, ...patch });
+    // Any explicit user action acknowledges (and clears) an import notice.
+    this.publish({ ...this.snapshot, importSummary: undefined, ...patch });
     this.persist();
   }
 
   private enqueue(operation: () => Promise<void>, error: OpeningError): Promise<void> {
     this.queue = this.queue
-      .catch(() => {})
+      .catch(() => {
+        // Queue self-healing: the failure below is already published per step.
+      })
       .then(async () => {
         if (this.disposed) return;
         try {
           await operation();
         } catch (err) {
           console.warn("[dsh-opening-animation] media mutation failed", err);
-          this.publish({ ...this.snapshot, error });
+          this.publish({ ...this.snapshot, error: isQuotaError(err) ? "quota" : error });
         }
       });
     return this.queue;

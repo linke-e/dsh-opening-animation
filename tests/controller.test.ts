@@ -7,6 +7,13 @@ import { OpeningController } from "../src/client/controller";
 import { openDatabase, putRecord, DB_NAME } from "../src/client/media-store";
 import { DEFAULT_PREFERENCES, PREFS_KEY, parsePreferences } from "../src/client/preferences";
 
+// jsdom never fires Image load/error, so decode probing is mocked for every
+// controller test; files named "broken-*" take the undecodable path.
+vi.mock("../src/client/media-probe", () => ({
+  isImportableImage: async (file: File) => !file.name.startsWith("broken-"),
+  MAX_IMAGE_PIXELS: 32_000_000,
+}));
+
 const SKIN_DB = "dsh-custom-skin";
 const SKIN_STORE = "wallpapers";
 
@@ -98,6 +105,43 @@ describe("OpeningController snapshots", () => {
     await controller.addFiles([videoFile()]);
     expect(controller.getSnapshot().error).toBe("unsupported-codec");
     expect(controller.getSnapshot().media).toHaveLength(0);
+  });
+
+  it("rejects undecodable images as invalid files", async () => {
+    const controller = makeController();
+    await controller.initialize();
+    await controller.addFiles([imageFile("broken-cut.png")]);
+    expect(controller.getSnapshot().error).toBe("invalid-file");
+    expect(controller.getSnapshot().media).toHaveLength(0);
+  });
+
+  it("reports capacity when the library is full and a summary when the cap cuts a batch", async () => {
+    const controller = makeController();
+    await controller.initialize();
+    await controller.addFiles(Array.from({ length: 8 }, (_, index) => imageFile(`full-${index}.png`)));
+    expect(controller.getSnapshot().media).toHaveLength(8);
+    await controller.addFiles([imageFile("extra.png")]);
+    expect(controller.getSnapshot().error).toBe("capacity");
+    expect(controller.getSnapshot().media).toHaveLength(8);
+    expect(controller.getSnapshot().importSummary).toBeUndefined();
+    const dropped = controller.getSnapshot().media[0]?.id as string;
+    await controller.remove(dropped);
+    await controller.addFiles([imageFile("e1.png"), imageFile("e2.png"), imageFile("e3.png")]);
+    const snap = controller.getSnapshot();
+    expect(snap.media).toHaveLength(8);
+    expect(snap.error).toBeUndefined();
+    expect(snap.importSummary).toEqual({ imported: 1, skipped: 2 });
+  });
+
+  it("reports quota when a write aborts with QuotaExceededError", async () => {
+    const controller = makeController();
+    await controller.initialize();
+    const quota = Object.assign(new Error("storage full"), { name: "QuotaExceededError" });
+    vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(() => {
+      throw quota;
+    });
+    await controller.addFiles([imageFile("q.png")]);
+    expect(controller.getSnapshot().error).toBe("quota");
   });
 
   it("removes media, clears the active selection, and wipes the library on clear", async () => {
