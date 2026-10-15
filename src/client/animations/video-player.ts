@@ -3,17 +3,16 @@
 // the image max-duration watchdog never applies); error → runtime.fail();
 // a rejected play() is retried once (autoplay policy races) before failing.
 // Playback always STARTS muted — that part is a hard browser autoplay
-// requirement, not a preference. Startup autoplay (a page load without a
-// user gesture) stays muted for the whole run: browser autoplay policy
-// pauses the video the moment a muted autoplay is unmuted without a user
-// activation, and rejects the recovery play() the same way, which would
-// leave the picture frozen. With volume > 0 the engine unmutes on the first
-// playing event ONLY when navigator.userActivation reports an activation
-// (the settings preview always has one) and applies volume/100; if unmuting
-// got the video paused, one play() re-kick is attempted, and a rejection
-// falls back to muted AND calls play() again so playback resumes — the
-// unlikely case of that recovery being rejected too is logged and left to
-// the error event path.
+// requirement, not a preference. On the first playing event the engine
+// ALWAYS attempts to unmute (volume/100) — unmute is probed, not gated on a
+// user activation, so a reload with no in-page click can still be audible
+// when the browser allows audible autoplay (a user gesture, a high Media
+// Engagement Index, or an allow-listed site). If the autoplay policy rejects
+// audible playback it pauses the video synchronously or asynchronously; the
+// engine detects that pause and falls back to muted, playing again so
+// playback resumes — audible when possible, silent when not, never frozen
+// (a muted play() is always policy-allowed; the unlikely case of it being
+// rejected too is logged and left to the error event path).
 // Params: scale (element transform, 1 = no zoom) and offsetX/offsetY (percent
 // of the screen, 0 = centered) position the video; fit keeps choosing how the
 // video content fills its element (cover/contain) beneath the transform;
@@ -58,31 +57,44 @@ export class VideoPlayerEngine implements AnimationController {
     this.runtime.fail(new Error("video element raised an error"));
   };
 
+  private readonly onPause = (): void => {
+    // A pause arriving after the unmute attempt is the autoplay policy
+    // rejecting audible playback (sync/async); fall back to silent playback
+    // instead of staying frozen. Engine-driven pauses are excluded: skip()
+    // and destroy() complete/destroy before pausing, and this guard sees it.
+    // Natural playback end also pauses first (spec: pause, then ended) —
+    // playing again there would restart the video inside the hand-off
+    // window, so an ended video is left alone.
+    if (this.destroyed || this.completed || !this.unmuted || this.video.ended) return;
+    this.fallBackToSilent();
+  };
+
   private readonly onPlaying = (): void => {
     if (this.destroyed || this.completed || this.unmuted) return;
     if (this.fading) return; // a running fade must not be reset by an unmute
     if (this.targetVolume <= 0) return; // volume 0 keeps the plain silent behavior
-    // Startup autoplay (no user gesture) must stay muted for the whole run:
-    // unmuting without a user activation gets the video paused by autoplay
-    // policy, and the recovery play() is rejected the same way (frozen frame).
-    if (navigator.userActivation?.hasBeenActive !== true) return;
+    // Behavior probe: always try to unmute. A browser that allows audible
+    // autoplay (user gesture, high Media Engagement Index, allow-listed
+    // site) leaves the video audible. One that does not pauses it —
+    // synchronously (handled right below) or asynchronously (handled by the
+    // pause listener) — and the engine falls back to muted playback.
     this.unmuted = true;
     this.video.muted = false;
     this.video.volume = this.targetVolume;
     if (this.video.paused) {
-      // Some browsers pause when muted flips off mid-autoplay; one re-kick,
-      // then fall back to muted and play again. If even the recovery play()
-      // is rejected (media-error territory; the error event fails the run),
-      // it is only logged.
-      void this.video.play().catch(() => {
-        if (this.destroyed || this.completed) return;
-        this.video.muted = true;
-        void this.video.play().catch((err: unknown) => {
-          console.debug("[dsh-opening-animation] silent-fallback play rejected", err);
-        });
-      });
+      // Some browsers pause synchronously when the mute flips off
+      // mid-autoplay; fall back to muted playback at once.
+      this.fallBackToSilent();
     }
   };
+
+  private fallBackToSilent(): void {
+    if (this.destroyed || this.completed) return;
+    this.video.muted = true;
+    void this.video.play().catch((err: unknown) => {
+      console.debug("[dsh-opening-animation] silent-fallback play rejected", err);
+    });
+  }
 
   private readonly onTimeUpdate = (): void => {
     if (this.fading || this.destroyed || this.completed) return;
@@ -123,6 +135,10 @@ export class VideoPlayerEngine implements AnimationController {
     this.video.addEventListener("ended", this.onEnded);
     this.video.addEventListener("error", this.onError);
     this.video.addEventListener("playing", this.onPlaying);
+    // Not gated on the fade: whenever the engine exists, a policy pause after
+    // the unmute attempt must fall back to silent playback instead of
+    // freezing the picture.
+    this.video.addEventListener("pause", this.onPause);
     // Armed only when the fade is enabled; with fadeOutMs = 0 no listener,
     // timer or fade state ever exists.
     if (this.fadeOutMs > 0) {
@@ -151,6 +167,7 @@ export class VideoPlayerEngine implements AnimationController {
     this.video.removeEventListener("ended", this.onEnded);
     this.video.removeEventListener("error", this.onError);
     this.video.removeEventListener("playing", this.onPlaying);
+    this.video.removeEventListener("pause", this.onPause);
     this.video.removeEventListener("timeupdate", this.onTimeUpdate);
     try {
       this.video.pause();

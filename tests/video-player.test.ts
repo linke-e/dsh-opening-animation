@@ -41,8 +41,10 @@ async function startPlaying(engine: VideoPlayerEngine): Promise<HTMLVideoElement
   return video;
 }
 
-/** Inject a user activation on Navigator (jsdom ships none); the unmute path
- * only runs when the browser reports one. Tests must clean this up. */
+/** Inject a user activation on Navigator (jsdom ships none). The engine no
+ * longer gates its unmute on this — injecting it only tags a test as the
+ * "with a user gesture" scenario, where a browser would certainly allow
+ * audible autoplay. Tests must clean this up. */
 function grantUserActivation(hasBeenActive: boolean): void {
   Object.defineProperty(Navigator.prototype, "userActivation", {
     value: { hasBeenActive },
@@ -117,12 +119,13 @@ describe("video-player audio behavior", () => {
     engine.destroy();
   });
 
-  it("re-kicks play() when unmuting left the video paused, and falls back to muted playback on rejection", async () => {
+  it("falls back to muted playback when unmuting leaves the video paused, and re-kicks play()", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play");
     const { runtime, calls } = makeRuntime({ volume: 80 });
     const engine = new VideoPlayerEngine(runtime);
     const video = videoOf(engine);
-    // stays paused: unmuting paused the video, so the engine must re-kick
+    // jsdom videos report paused=true by default: unmuting "pauses" the video
+    // synchronously, so the engine must fall back to muted playback itself
     engine.start();
     await vi.waitFor(() => {
       expect(play).toHaveBeenCalledTimes(1);
@@ -130,20 +133,24 @@ describe("video-player audio behavior", () => {
     play.mockRejectedValueOnce(new Error("autoplay policy"));
     grantUserActivation(true);
     video.dispatchEvent(new Event("playing"));
-    expect(video.muted).toBe(false);
+    // the unmute probe ran (the volume was applied) and the sync-pause branch
+    // muted again immediately — the silent-fallback play() (#2) was rejected
+    // and only logged; the 10 s stall watchdog is the last-resort safety net,
+    // and the video must never stay frozen on a paused frame
     expect(video.volume).toBeCloseTo(0.8, 6);
     await vi.waitFor(() => {
-      // muted again (play #2 rejected) and a third play() resumes silent
-      // playback so the video can never stay frozen on a paused frame
-      expect(play).toHaveBeenCalledTimes(3);
+      expect(play).toHaveBeenCalledTimes(2);
       expect(video.muted).toBe(true);
     });
     expect(calls.fail).toBe(0); // silent playback must not fail the opening
     engine.destroy();
   });
 
-  it("stays muted when navigator.userActivation is undefined (startup autoplay)", async () => {
-    Object.defineProperty(Navigator.prototype, "userActivation", { value: undefined, configurable: true });
+  it("stays audible without any user activation when the browser allows audible autoplay", async () => {
+    // No userActivation injected at all (jsdom ships none): a page reload
+    // with no in-page click. A browser lets such a page play audible when
+    // the site's Media Engagement Index is high or the site is
+    // allow-listed — so the unmute probe must go through and stay.
     const play = vi.spyOn(HTMLMediaElement.prototype, "play");
     const { runtime } = makeRuntime({ volume: 50 });
     const engine = new VideoPlayerEngine(runtime);
@@ -152,28 +159,63 @@ describe("video-player audio behavior", () => {
     await vi.waitFor(() => {
       expect(play).toHaveBeenCalledTimes(1);
     });
+    Object.defineProperty(video, "paused", { value: false, configurable: true }); // audible autoplay allowed
     video.dispatchEvent(new Event("playing"));
-    expect(video.muted).toBe(true); // no user activation → no unmute, ever
-    expect(video.volume).toBe(1); // untouched jsdom default
-    expect(play).toHaveBeenCalledTimes(1); // no re-kick, no extra play() calls
+    expect(video.muted).toBe(false);
+    expect(video.volume).toBeCloseTo(0.5, 6);
+    expect(play).toHaveBeenCalledTimes(1); // the browser let it play — no fallback re-kick
     engine.destroy();
   });
 
-  it("stays muted when the user activation has never been active", async () => {
-    grantUserActivation(false);
+  it("falls back to muted playback when the browser pauses after the unmute (async policy rejection)", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play");
-    const { runtime } = makeRuntime({ volume: 50 });
+    const { runtime, calls } = makeRuntime({ volume: 50 });
     const engine = new VideoPlayerEngine(runtime);
     const video = videoOf(engine);
     engine.start();
     await vi.waitFor(() => {
       expect(play).toHaveBeenCalledTimes(1);
     });
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
     video.dispatchEvent(new Event("playing"));
-    expect(video.muted).toBe(true);
-    expect(video.volume).toBe(1);
-    expect(play).toHaveBeenCalledTimes(1);
+    expect(video.muted).toBe(false); // the unmute probe went through, briefly audible
+    // the autoplay policy pauses the video asynchronously after the unmute:
+    // the engine must mute again and resume playing so it never freezes
+    video.dispatchEvent(new Event("pause"));
+    await vi.waitFor(() => {
+      expect(video.muted).toBe(true);
+      expect(play).toHaveBeenCalledTimes(2); // silent playback resumed
+    });
+    expect(calls.fail).toBe(0);
     engine.destroy();
+  });
+
+  it("ignores pause events after skip or destroy (engine-driven pauses never re-play)", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play");
+    // skip path: unmuted, then skip() completes — a pause from then on is
+    // engine-driven and must not trigger the silent fallback
+    const skipped = makeRuntime({ volume: 50 });
+    const skipEngine = new VideoPlayerEngine(skipped.runtime);
+    const skipVideo = await startPlaying(skipEngine);
+    skipVideo.dispatchEvent(new Event("playing"));
+    expect(skipVideo.muted).toBe(false);
+    skipEngine.skip();
+    expect(skipped.calls.complete).toBe(1);
+    skipVideo.dispatchEvent(new Event("pause"));
+    expect(skipVideo.muted).toBe(false); // guard saw completed — no fallback mute
+    expect(play).toHaveBeenCalledTimes(1); // only start()'s play — no re-kick
+    // destroy path: the pause listener is removed, a stray pause is a no-op
+    const destroyed = makeRuntime({ volume: 50 });
+    const destroyEngine = new VideoPlayerEngine(destroyed.runtime);
+    const destroyVideo = await startPlaying(destroyEngine);
+    destroyVideo.dispatchEvent(new Event("playing"));
+    expect(destroyVideo.muted).toBe(false);
+    destroyEngine.destroy();
+    destroyVideo.dispatchEvent(new Event("pause"));
+    expect(destroyVideo.muted).toBe(false);
+    expect(play).toHaveBeenCalledTimes(2); // still only the two start() plays
+    expect(destroyed.calls.complete).toBe(0);
+    expect(destroyed.calls.fail).toBe(0);
   });
 
   it("completes on ended and stops reacting to playing after destroy", async () => {
