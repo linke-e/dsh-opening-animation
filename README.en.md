@@ -18,6 +18,14 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 ### Image opening animations
 
+**glass**
+
+![glass](docs/pic/glass.gif)
+
+**"404"**
+
+![404](docs/pic/“404”.gif)
+
 **tap-reveal**
 
 ![tap-reveal](docs/pic/3.gif)

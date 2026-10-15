@@ -18,6 +18,14 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 ### 图片开场动画
 
+**glass**
+
+![glass](docs/pic/glass.gif)
+
+**"404"**
+
+![404](docs/pic/“404”.gif)
+
 **tap-reveal**
 
 ![tap-reveal](docs/pic/3.gif)
