@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { MAX_MEDIA, type OpeningController, type OpeningError, type OpeningSnapshot } from "../controller";
+import { IMAGE_PLAYBACK_ORDERS } from "../preferences";
 import { MAX_IMAGE_PIXELS } from "../media-probe";
 import type { MediaKind } from "../registry";
 import { AnimationPicker } from "./AnimationPicker";
@@ -144,6 +145,29 @@ export function OpeningSection({ t, useOpening, controller, locale }: OpeningSec
           onChange={(animId) => controller.setAnimation(kind, animId)}
           onParam={(animId, key, value) => controller.setParam(animId, key, value)}
         />
+      </div>
+      <div className="dsh-opening-control">
+        <span className="dsh-opening-control-head">
+          <span>{t("orderLabel")}</span>
+        </span>
+        <small className="dsh-opening-note">{t("orderHint")}</small>
+        <div className="dsh-opening-radios" role="radiogroup" aria-label={t("orderLabel")}>
+          {IMAGE_PLAYBACK_ORDERS.map((order) => (
+            <label key={order} className="dsh-opening-radio" data-checked={state.imageOrder === order}>
+              <input
+                type="radio"
+                name="dsh-opening-order"
+                value={order}
+                checked={state.imageOrder === order}
+                onChange={() => controller.setImageOrder(order)}
+              />
+              <span className="dsh-opening-radio-copy">
+                <span>{t(`order.${order}`)}</span>
+                <small>{t(`order.${order}.hint`)}</small>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
       <TransitionPicker t={t} value={state.transitionId} onChange={(id) => controller.setTransition(id)} />
       <BehaviorControls t={t} snap={state} controller={controller} />

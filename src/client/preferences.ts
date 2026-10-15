@@ -5,6 +5,8 @@ export interface OpeningPreferences {
   enabled: boolean;
   activeId?: string;
   animationByKind: { image: string; video: string };
+  /** Which image opening a startup playback runs (videos always play the selection). */
+  imageOrder: ImagePlaybackOrder;
   transitionId: string;
   transitionScale: number;
   maxDurationMs: number;
@@ -13,7 +15,15 @@ export interface OpeningPreferences {
   skinHandoff: boolean;
 }
 
+export type ImagePlaybackOrder = "single" | "sequence" | "shuffle";
+
+export const IMAGE_PLAYBACK_ORDERS: readonly ImagePlaybackOrder[] = ["single", "sequence", "shuffle"];
+
 export const PREFS_KEY = "dsh.opening-animation.preferences.v1";
+
+/** Key of the startup playback cursor: the image id played by the last
+ * startup, independent of the preferences payload. */
+export const CURSOR_KEY = "dsh.opening-animation.cursor.v1";
 
 export const DEFAULT_ANIMATION_BY_KIND = { image: "tap-reveal", video: "video-player" } as const;
 
@@ -21,6 +31,7 @@ export const DEFAULT_PREFERENCES: Readonly<OpeningPreferences> = Object.freeze({
   enabled: false,
   activeId: undefined,
   animationByKind: { ...DEFAULT_ANIMATION_BY_KIND },
+  imageOrder: "single",
   transitionId: "cross-fade",
   transitionScale: 1,
   maxDurationMs: 15000,
@@ -82,6 +93,9 @@ export function parsePreferences(storage: Pick<Storage, "getItem"> = localStorag
     enabled: typeof v.enabled === "boolean" ? v.enabled : DEFAULT_PREFERENCES.enabled,
     activeId: typeof v.activeId === "string" ? v.activeId : undefined,
     animationByKind,
+    imageOrder: typeof v.imageOrder === "string" && (IMAGE_PLAYBACK_ORDERS as readonly string[]).includes(v.imageOrder)
+      ? (v.imageOrder as ImagePlaybackOrder)
+      : DEFAULT_PREFERENCES.imageOrder,
     transitionId: typeof v.transitionId === "string" ? v.transitionId : DEFAULT_PREFERENCES.transitionId,
     transitionScale: scale,
     maxDurationMs: maxDuration,
@@ -96,6 +110,7 @@ export function structuredClonePreferences(prefs: Readonly<OpeningPreferences>):
     enabled: prefs.enabled,
     activeId: prefs.activeId,
     animationByKind: { ...prefs.animationByKind },
+    imageOrder: prefs.imageOrder,
     transitionId: prefs.transitionId,
     transitionScale: prefs.transitionScale,
     maxDurationMs: prefs.maxDurationMs,
@@ -103,4 +118,35 @@ export function structuredClonePreferences(prefs: Readonly<OpeningPreferences>):
     paramOverrides: Object.fromEntries(Object.entries(prefs.paramOverrides).map(([k, v]) => [k, { ...v }])),
     skinHandoff: prefs.skinHandoff,
   };
+}
+
+/** The image id played by the last startup playback, if any. Any corrupted or
+ * empty entry falls back to undefined; parsing never throws. */
+export function readLastPlayedImageId(storage: Pick<Storage, "getItem"> = localStorage): string | undefined {
+  try {
+    const raw = storage.getItem(CURSOR_KEY);
+    if (raw === null) return undefined;
+    const value: unknown = JSON.parse(raw);
+    return typeof value === "string" && value !== "" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Record the image id played by this startup; storage-full/blocked keeps it in-memory only. */
+export function writeLastPlayedImageId(id: string, storage: Pick<Storage, "setItem"> = localStorage): void {
+  try {
+    storage.setItem(CURSOR_KEY, JSON.stringify(id));
+  } catch {
+    // storage full or blocked: the cursor stays in-memory only
+  }
+}
+
+/** Drop the startup playback cursor; best-effort, never throws. */
+export function clearLastPlayedImageId(storage: Pick<Storage, "removeItem"> = localStorage): void {
+  try {
+    storage.removeItem(CURSOR_KEY);
+  } catch {
+    // best-effort
+  }
 }

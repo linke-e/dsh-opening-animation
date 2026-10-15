@@ -5,7 +5,15 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpeningController } from "../src/client/controller";
 import { openDatabase, putRecord, DB_NAME } from "../src/client/media-store";
-import { DEFAULT_PREFERENCES, PREFS_KEY, parsePreferences } from "../src/client/preferences";
+import {
+  CURSOR_KEY,
+  DEFAULT_PREFERENCES,
+  PREFS_KEY,
+  parsePreferences,
+  readLastPlayedImageId,
+  writeLastPlayedImageId,
+  type ImagePlaybackOrder,
+} from "../src/client/preferences";
 
 // jsdom never fires Image load/error, so decode probing is mocked for every
 // controller test; files named "broken-*" take the undecodable path.
@@ -39,6 +47,35 @@ async function seedMedia(id: string): Promise<void> {
   const blob = new NodeBlob(["x"]) as unknown as Blob;
   await putRecord(db, { id, name: `${id}.png`, type: "image/png", blob, createdAt: 1 });
   db.close();
+}
+
+/** Seed one record with an explicit type/createdAt; the record name equals the
+ * id so overlay-mount spies can assert which media actually played. */
+async function seedRecord(id: string, type: string, createdAt: number): Promise<void> {
+  const db = await openDatabase();
+  const blob = new NodeBlob(["x"]) as unknown as Blob;
+  await putRecord(db, { id, name: id, type, blob, createdAt });
+  db.close();
+}
+
+/** A controller from a fresh module graph (resets the module-level
+ * once-per-document guard) plus the names of the media its startup playback
+ * actually mounted, captured by spying on OverlayRunner#mount. */
+async function freshControllerWithMounts(): Promise<{
+  Controller: typeof OpeningController;
+  played: string[];
+}> {
+  vi.resetModules();
+  const [{ OpeningController: Fresh }, { OverlayRunner: Runner }] = await Promise.all([
+    import("../src/client/controller"),
+    import("../src/client/overlay"),
+  ]);
+  const played: string[] = [];
+  vi.spyOn(Runner.prototype, "mount").mockImplementation(function (this: InstanceType<typeof Runner>) {
+    const opts = Reflect.get(this, "opts") as { media: { name: string } };
+    played.push(opts.media.name);
+  });
+  return { Controller: Fresh, played };
 }
 
 /** The handoff must never create the skin database; give it an existing one. */
@@ -269,6 +306,118 @@ describe("once-per-document autoplay", () => {
     await vi.advanceTimersByTimeAsync(10);
     expect(document.querySelector(".dsh-opening-root")).toBeNull();
     second.dispose();
+  });
+});
+
+describe("startup playback order", () => {
+  function prefsFor(activeId: string, imageOrder: ImagePlaybackOrder): string {
+    return JSON.stringify({ ...DEFAULT_PREFERENCES, enabled: true, activeId, imageOrder });
+  }
+
+  it("advances through the image list in sequence and wraps around", async () => {
+    await seedRecord("img-a", "image/png", 1);
+    await seedRecord("img-b", "image/png", 2); // createdAt desc → grid order: img-b, img-a
+    localStorage.setItem(PREFS_KEY, prefsFor("img-a", "sequence"));
+
+    let { Controller, played } = await freshControllerWithMounts();
+    let controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["img-a"]); // no cursor yet → starts from the selection
+    expect(readLastPlayedImageId()).toBe("img-a");
+    controller.dispose();
+
+    ({ Controller, played } = await freshControllerWithMounts());
+    controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["img-b"]); // cursor img-a → next in the list
+    expect(readLastPlayedImageId()).toBe("img-b");
+    controller.dispose();
+
+    ({ Controller, played } = await freshControllerWithMounts());
+    controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["img-a"]); // wraps around to the first
+    controller.dispose();
+  });
+
+  it("falls back to the selection when the sequence cursor is invalid", async () => {
+    await seedRecord("img-a", "image/png", 1);
+    await seedRecord("img-b", "image/png", 2);
+    localStorage.setItem(PREFS_KEY, prefsFor("img-b", "sequence"));
+    localStorage.setItem(CURSOR_KEY, JSON.stringify("removed-id"));
+    const { Controller, played } = await freshControllerWithMounts();
+    const controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["img-b"]);
+    expect(readLastPlayedImageId()).toBe("img-b");
+    controller.dispose();
+  });
+
+  it("never repeats the previous image under shuffle when there is more than one", async () => {
+    await seedRecord("img-a", "image/png", 1);
+    await seedRecord("img-b", "image/png", 2);
+    localStorage.setItem(PREFS_KEY, prefsFor("img-a", "shuffle"));
+    localStorage.setItem(CURSOR_KEY, JSON.stringify("img-a"));
+    const { Controller, played } = await freshControllerWithMounts();
+    const controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["img-b"]); // the pool excluded the previous img-a
+    expect(readLastPlayedImageId()).toBe("img-b");
+    controller.dispose();
+  });
+
+  it("keeps videos on the selection and never writes the cursor", async () => {
+    // jsdom canPlayType always returns "" → seed the record instead of addFiles
+    await seedRecord("vid", "video/mp4", 1);
+    localStorage.setItem(PREFS_KEY, prefsFor("vid", "sequence"));
+    const { Controller, played } = await freshControllerWithMounts();
+    const controller = new Controller(parsePreferences());
+    await controller.initialize();
+    expect(played).toEqual(["vid"]);
+    expect(readLastPlayedImageId()).toBeUndefined();
+    controller.dispose();
+  });
+
+  it("preview plays the selection and leaves the cursor untouched", async () => {
+    await seedRecord("img-a", "image/png", 1);
+    await seedRecord("img-b", "image/png", 2);
+    // enabled stays off so initialize() does not consume the startup playback
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...DEFAULT_PREFERENCES, enabled: false, activeId: "img-a", imageOrder: "sequence" }),
+    );
+    localStorage.setItem(CURSOR_KEY, JSON.stringify("img-b"));
+    const { Controller, played } = await freshControllerWithMounts();
+    const controller = new Controller(parsePreferences());
+    await controller.initialize();
+    controller.preview();
+    expect(played).toEqual(["img-a"]); // preview ignores the rotation
+    expect(readLastPlayedImageId()).toBe("img-b");
+    controller.dispose();
+  });
+
+  it("clears the cursor when the selection changes", async () => {
+    await seedRecord("img-a", "image/png", 1);
+    await seedRecord("img-b", "image/png", 2);
+    const controller = makeController();
+    await controller.initialize();
+    writeLastPlayedImageId("img-b");
+    controller.select("img-a");
+    expect(controller.getSnapshot().activeId).toBe("img-a");
+    expect(readLastPlayedImageId()).toBeUndefined();
+  });
+
+  it("clears the cursor when the order changes and rejects unknown orders", async () => {
+    const controller = makeController();
+    await controller.initialize();
+    writeLastPlayedImageId("img-a");
+    controller.setImageOrder("sequence");
+    expect(controller.getSnapshot().imageOrder).toBe("sequence");
+    expect(readLastPlayedImageId()).toBeUndefined();
+    writeLastPlayedImageId("img-a");
+    controller.setImageOrder("chaos" as ImagePlaybackOrder);
+    expect(controller.getSnapshot().imageOrder).toBe("sequence"); // unchanged
+    expect(readLastPlayedImageId()).toBe("img-a"); // rejected orders keep the cursor
   });
 });
 

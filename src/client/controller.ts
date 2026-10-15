@@ -18,8 +18,13 @@ import {
 import { OverlayRunner } from "./overlay";
 import {
   DEFAULT_PREFERENCES,
+  IMAGE_PLAYBACK_ORDERS,
   PREFS_KEY,
+  clearLastPlayedImageId,
+  readLastPlayedImageId,
   structuredClonePreferences,
+  writeLastPlayedImageId,
+  type ImagePlaybackOrder,
   type OpeningPreferences,
 } from "./preferences";
 import { isImportableImage, MAX_IMAGE_PIXELS } from "./media-probe";
@@ -59,6 +64,7 @@ export interface OpeningSnapshot {
   activeId?: string;
   activeKind?: MediaKind;
   animationByKind: { image: string; video: string };
+  imageOrder: ImagePlaybackOrder;
   transitionId: string;
   transitionScale: number;
   maxDurationMs: number;
@@ -131,6 +137,7 @@ export class OpeningController {
       media: [],
       activeId: earlyPrefs.activeId,
       animationByKind: { ...earlyPrefs.animationByKind },
+      imageOrder: earlyPrefs.imageOrder,
       transitionId: earlyPrefs.transitionId,
       transitionScale: earlyPrefs.transitionScale,
       maxDurationMs: earlyPrefs.maxDurationMs,
@@ -183,7 +190,19 @@ export class OpeningController {
       this.persist();
       if (!playedThisDocument && this.snapshot.enabled && this.snapshot.activeId !== undefined) {
         playedThisDocument = true;
-        this.playOnce();
+        // The startup selection only affects images: "sequence" starts from the
+        // selected item and advances through the image list on each startup,
+        // wrapping around; "shuffle" never repeats the previous image when
+        // there is more than one. The preview path is unaffected (it always
+        // plays the selected media).
+        const startupId = this.resolveStartupMediaId();
+        if (startupId !== undefined) {
+          const startup = this.snapshot.media.find((item) => item.id === startupId);
+          if (startup?.kind === "image" && this.snapshot.imageOrder !== "single") {
+            writeLastPlayedImageId(startupId);
+          }
+        }
+        this.playOnce(false, startupId);
       }
     } catch (err) {
       console.warn("[dsh-opening-animation] local media storage unavailable", err);
@@ -279,6 +298,7 @@ export class OpeningController {
       transaction.objectStore(STORE).delete(id);
       await transactionDone(transaction);
       this.records.delete(id);
+      if (readLastPlayedImageId() === id) clearLastPlayedImageId();
       const url = this.objectUrls.get(id);
       if (url !== undefined) URL.revokeObjectURL(url);
       this.objectUrls.delete(id);
@@ -299,6 +319,7 @@ export class OpeningController {
       transaction.objectStore(STORE).clear();
       await transactionDone(transaction);
       this.records.clear();
+      clearLastPlayedImageId();
       for (const url of this.objectUrls.values()) URL.revokeObjectURL(url);
       this.objectUrls.clear();
       this.publish({ ...this.snapshot, media: [], activeId: undefined, error: undefined });
@@ -308,7 +329,16 @@ export class OpeningController {
 
   select(id: string): void {
     if (!this.snapshot.media.some((item) => item.id === id)) return;
+    // A new selection is a new starting point for sequence/shuffle rotations.
+    if (id !== this.snapshot.activeId) clearLastPlayedImageId();
     this.update({ activeId: id, error: undefined });
+  }
+
+  setImageOrder(order: ImagePlaybackOrder): void {
+    if (!IMAGE_PLAYBACK_ORDERS.includes(order)) return;
+    // A new order restarts the rotation from the selected item.
+    clearLastPlayedImageId();
+    this.update({ imageOrder: order });
   }
 
   setEnabled(enabled: boolean): void {
@@ -356,6 +386,7 @@ export class OpeningController {
       ...this.snapshot,
       enabled: defaults.enabled,
       animationByKind: defaults.animationByKind,
+      imageOrder: defaults.imageOrder,
       transitionId: defaults.transitionId,
       transitionScale: defaults.transitionScale,
       maxDurationMs: defaults.maxDurationMs,
@@ -365,6 +396,7 @@ export class OpeningController {
       importSummary: undefined,
       error: undefined,
     });
+    clearLastPlayedImageId();
     this.persist();
   }
 
@@ -389,15 +421,14 @@ export class OpeningController {
     this.listeners.clear();
   }
 
-  private playOnce(forceMotion = false): void {
+  private playOnce(forceMotion = false, mediaId: string | undefined = this.snapshot.activeId): void {
     if (this.disposed || this.activeRunner !== undefined) return;
     const snapshot = this.snapshot;
-    const activeId = snapshot.activeId;
-    if (activeId === undefined) {
+    if (mediaId === undefined) {
       this.teardownPending();
       return;
     }
-    const record = this.records.get(activeId);
+    const record = this.records.get(mediaId);
     if (record === undefined) {
       this.teardownPending();
       return;
@@ -440,6 +471,32 @@ export class OpeningController {
       console.warn("[dsh-opening-animation] overlay mount failed", err);
       runner.abort();
     }
+  }
+
+  /** Picks the media one startup playback runs. The startup selection only
+   * affects images — videos always play the selected item. "sequence" starts
+   * from the selected item and advances through the image list (media is
+   * sorted by createdAt descending, matching the settings grid order),
+   * wrapping around; "shuffle" picks a random image that never repeats the
+   * previous one when there is more than one. An invalid or absent cursor
+   * (first use, or the previously played image was removed) falls back to the
+   * selected item. The preview path is unaffected (it always plays the
+   * selection). */
+  private resolveStartupMediaId(): string | undefined {
+    const activeId = this.snapshot.activeId;
+    if (activeId === undefined) return undefined;
+    const active = this.snapshot.media.find((item) => item.id === activeId);
+    if (active === undefined) return undefined;
+    if (active.kind !== "image" || this.snapshot.imageOrder === "single") return activeId;
+    const images = this.snapshot.media.filter((item) => item.kind === "image").map((item) => item.id);
+    if (this.snapshot.imageOrder === "shuffle") {
+      const last = readLastPlayedImageId();
+      const pool = images.length > 1 && last !== undefined ? images.filter((id) => id !== last) : images;
+      return pool[Math.floor(Math.random() * pool.length)] ?? activeId;
+    }
+    const last = readLastPlayedImageId();
+    const index = last !== undefined ? images.indexOf(last) : -1;
+    return index >= 0 ? images[(index + 1) % images.length]! : activeId;
   }
 
   /** Missing media/animation: un-pend and end without a trace. */
@@ -532,6 +589,7 @@ export class OpeningController {
       enabled: s.enabled,
       activeId: s.activeId,
       animationByKind: { ...s.animationByKind },
+      imageOrder: s.imageOrder,
       transitionId: s.transitionId,
       transitionScale: s.transitionScale,
       maxDurationMs: s.maxDurationMs,

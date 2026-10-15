@@ -46,6 +46,14 @@ export const en = {
   kindVideo: "Video",
   skinHandoff: "Also add uploaded images to the wallpaper library",
   skinHandoffHint: "When the wallpaper plugin is installed, uploaded images are copied into its library. It never changes your active wallpaper.",
+  orderLabel: "Playback order",
+  orderHint: "Chooses which image opening plays at each startup; preview always plays the selected media. Videos ignore this setting.",
+  "order.single": "Single",
+  "order.single.hint": "Play the selected animation on every startup.",
+  "order.sequence": "Sequence",
+  "order.sequence.hint": "Start from the selected animation, then advance through the image list on each startup, wrapping around.",
+  "order.shuffle": "Shuffle",
+  "order.shuffle.hint": "Pick a random image animation each startup; the previous one is never repeated when there is more than one.",
   "anim.pool.label": "Pool",
   "anim.pool.desc": "Your picture rests still like the surface of a pool; sweeping the pointer across it leaves refracting ripples with a soft glint, while drifting dust, film grain and edge pulses play on top and caption lines light up word by word below.",
   "anim.code-rain.label": "Code rain",
@@ -97,6 +105,7 @@ export const en = {
   "param.hintText": "Hint text",
   "param.lockBg": "Lock screen background (image URL, empty = the active picture)",
   "param.volume": "Volume (0-100, 0 = muted)",
+  "param.fadeOutMs": "Audio fade-out (ms, 0 = off)",
 };
 
 export const zh = {
@@ -142,6 +151,14 @@ export const zh = {
   kindVideo: "\u89C6\u9891",
   skinHandoff: "\u540C\u65F6\u5C06\u4E0A\u4F20\u7684\u56FE\u7247\u52A0\u5165\u58C1\u7EB8\u5E93",
   skinHandoffHint: "\u5DF2\u5B89\u88C5\u58C1\u7EB8\u63D2\u4EF6\u65F6\uFF0C\u4E0A\u4F20\u7684\u56FE\u7247\u4F1A\u540C\u6B65\u8FDB\u5165\u58C1\u7EB8\u5E93\uFF0C\u4F46\u4E0D\u4F1A\u6539\u53D8\u5F53\u524D\u6FC0\u6D3B\u7684\u58C1\u7EB8\u3002",
+  orderLabel: "\u64AD\u653E\u987A\u5E8F",
+  orderHint: "\u51B3\u5B9A\u6BCF\u6B21\u542F\u52A8\u64AD\u653E\u54EA\u4E00\u5F20\u56FE\u7247\u52A8\u753B\uFF1B\u9884\u89C8\u59CB\u7EC8\u64AD\u653E\u5F53\u524D\u9009\u4E2D\u7684\u5A92\u4F53\u3002\u89C6\u9891\u4E0D\u53D7\u6B64\u9879\u5F71\u54CD\u3002",
+  "order.single": "\u5355\u4E00",
+  "order.single.hint": "\u6BCF\u6B21\u542F\u52A8\u90FD\u64AD\u653E\u9009\u4E2D\u7684\u8FD9\u4E2A\u52A8\u753B\u3002",
+  "order.sequence": "\u987A\u5E8F",
+  "order.sequence.hint": "\u4ECE\u9009\u4E2D\u7684\u52A8\u753B\u5F00\u59CB\uFF0C\u4E4B\u540E\u6BCF\u6B21\u542F\u52A8\u6309\u64AD\u653E\u5217\u8868\u987A\u5E8F\u64AD\u653E\u4E0B\u4E00\u4E2A\uFF0C\u5230\u672B\u5C3E\u56DE\u5230\u5F00\u5934\u5FAA\u73AF\u3002",
+  "order.shuffle": "\u968F\u673A",
+  "order.shuffle.hint": "\u6BCF\u6B21\u542F\u52A8\u968F\u673A\u9009\u62E9\u5217\u8868\u4E2D\u7684\u4E00\u4E2A\u56FE\u7247\u52A8\u753B\uFF1B\u591A\u4E8E\u4E00\u4E2A\u65F6\u4E0D\u4F1A\u4E0E\u4E0A\u6B21\u91CD\u590D\u3002",
   "anim.pool.label": "\u6C34\u6CE2",
   "anim.pool.desc": "\u56FE\u7247\u5982\u6C60\u9762\u822C\u9759\u6B62\uFF0C\u6307\u9488\u5212\u8FC7\u7559\u4E0B\u6298\u5C04\u6C34\u6CE2\u4E0E\u7CBC\u5149\uFF1B\u5176\u4E0A\u5C18\u57C3\u6F02\u6D6E\u3001\u80F6\u7247\u9897\u7C92\u4E0E\u8FB9\u7F18\u8272\u6563\u8109\u51B2\u95EA\u70C1\uFF0C\u4E0B\u65B9\u5B57\u5E55\u9010\u8BCD\u70B9\u4EAE\u3002",
   "anim.code-rain.label": "\u5B57\u7B26\u96E8",
@@ -193,4 +210,5 @@ export const zh = {
   "param.hintText": "\u63D0\u793A\u8BED",
   "param.lockBg": "\u9501\u5C4F\u80CC\u666F\u56FE\uFF08\u56FE\u7247 URL\uFF0C\u7559\u7A7A\u7528\u5F53\u524D\u56FE\u7247\uFF09",
   "param.volume": "\u97F3\u91CF\uFF080-100\uFF0C0 \u4E3A\u9759\u97F3\uFF09",
+  "param.fadeOutMs": "\u97F3\u9891\u6DE1\u51FA\uFF08ms\uFF0C0 \u4E3A\u7981\u7528\uFF09",
 };

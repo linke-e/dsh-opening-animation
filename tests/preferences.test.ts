@@ -43,4 +43,17 @@ describe("preferences parsing", () => {
     expect(prefs.enabled).toBe(false);
     expect(PREFS_KEY).toBe("dsh.opening-animation.preferences.v1");
   });
+
+  it("keeps a valid imageOrder and falls back to the default for invalid values", () => {
+    expect(parsePreferences(storageWith(null)).imageOrder).toBe("single");
+    expect(
+      parsePreferences(storageWith(JSON.stringify({ imageOrder: "shuffle" }))).imageOrder,
+    ).toBe("shuffle");
+    expect(
+      parsePreferences(storageWith(JSON.stringify({ imageOrder: "sequence" }))).imageOrder,
+    ).toBe("sequence");
+    expect(
+      parsePreferences(storageWith(JSON.stringify({ imageOrder: "chaos" }))).imageOrder,
+    ).toBe("single");
+  });
 });
