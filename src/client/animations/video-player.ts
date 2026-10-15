@@ -90,8 +90,10 @@ export class VideoPlayerEngine implements AnimationController {
     // jsdom (and unloaded videos) report no usable duration — never fade there.
     if (!Number.isFinite(duration) || duration <= 0) return;
     if (this.video.currentTime <= 0) return; // playback has not started
-    const remaining = duration - this.video.currentTime;
-    if (remaining < 0 || remaining > this.fadeOutMs) return;
+    // duration/currentTime are seconds; fadeOutMs is milliseconds — the
+    // comparison must happen in ms, or every video fades from its first tick.
+    const remainingMs = (duration - this.video.currentTime) * 1000;
+    if (remainingMs < 0 || remainingMs > this.fadeOutMs) return;
     this.startFadeOut();
   };
 

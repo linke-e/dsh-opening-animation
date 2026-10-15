@@ -267,6 +267,20 @@ describe("video-player end-of-playback audio fade", () => {
     engine.destroy();
   });
 
+  it("does not fade mid-playback: remaining time is seconds, the window is ms", () => {
+    // Regression: duration/currentTime are seconds, fadeOutMs milliseconds —
+    // comparing them raw made every video fade from its first timeupdate.
+    const { runtime } = makeRuntime({ fadeOutMs: 1500 });
+    const engine = new VideoPlayerEngine(runtime);
+    const video = videoOf(engine);
+    Object.defineProperty(video, "duration", { value: 10, configurable: true });
+    Object.defineProperty(video, "currentTime", { value: 1, configurable: true }); // 9 s = 9000 ms left
+    video.dispatchEvent(new Event("timeupdate"));
+    expect(fadingOf(engine)).toBe(false);
+    expect(video.volume).toBe(1); // untouched — playback keeps its volume
+    engine.destroy();
+  });
+
   it("does not unmute on playing once the fade has started", () => {
     vi.useFakeTimers();
     try {
