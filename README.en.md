@@ -51,11 +51,11 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 ### Video opening
 
-![Video opening](docs/pic/5.gif)
+![Video opening](docs/pic/video.gif)
 
 **constructivism1-vidio**
 
-![constructivism1_vidio](docs/pic/constructivism1_vidio.gif)
+![constructivism1_vidio](docs/pic/constructivism1_video.gif)
 
 
 ## Build

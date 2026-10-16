@@ -51,7 +51,7 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 ### 视频开场动画
 
-![视频开场动画](docs/pic/5.gif)
+![视频开场动画](docs/pic/video.gif)
 
 **constructivism1-vidio**
     
