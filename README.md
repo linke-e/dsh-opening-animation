@@ -33,7 +33,7 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 **grid-mouse**
 
-
+![grid-mouse](docs/pic/grid_mouse.gif)
 
 **retro-boot**
 
@@ -45,14 +45,7 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 **constructivism1**
 
-以你的图片或视频为核心的构成主义海报拼贴：暖纸底与墨黑几何、构成主义蓝斜条、蓝楔形与半调网点；画面在锐利多边形窗口中展开并叠加深蓝错位套准层。文字系统全部可自定义：
-
-- **标题大字**（`caption` 参数）：左栏逐个砸入的字块，默认 `DEEPSEEK|HARNESS`，用 `|` 分行（最多 3 行，留空回退默认）；字块按行号在墨黑底/米色底之间交替
-- **左上角小字**（`brandText` 参数）：斜切墨黑品牌板，默认 `DEEPSEEK`，留空回退默认
-- **字体**（`fontFamily` 参数）：整张海报的字体栈，留空用内置字体
-- **底随文字自适应**：墨黑/米色底板宽度始终收缩包裹文字——字长则底长、字短则底短；超长文字不会被截断，而是在列宽内等比缩小字号（窗口变化、字体就绪时自动重新适配）
-
-视频版（`constructivism1-video`）同款海报构图与文字参数，视频作为纯背景层播放。
+![constructivism1_Pic](docs/pic/constructivism1_Pic.gif)
 
 **...**
 
@@ -60,9 +53,9 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 ![视频开场动画](docs/pic/5.gif)
 
-**constructivism1（视频版）**
+**constructivism1-vidio**
 
-与图片版同一张构成主义海报（同款文字参数：标题大字 / 左上角小字 / 字体 / 底随文字自适应），视频作为多边形窗口中的纯背景层播放——静音自动播放、循环可调、结尾音频淡出，播完由时长参数收场。
+![constructivism1_vidio](docs/pic/constructivism1_vidio.gif)
 
 ## 构建
 

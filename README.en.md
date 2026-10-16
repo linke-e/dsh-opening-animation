@@ -33,7 +33,7 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 **grid-mouse**
 
-
+![grid-mouse](docs/pic/grid_mouse.gif)
 
 **retro-boot**
 
@@ -45,12 +45,7 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 **constructivism1**
 
-A constructivist poster collage built around your picture: warm-paper ground, ink-black geometry, constructivist-blue bars, a blue wedge and halftone screens; the picture unfolds inside a sharply clipped polygon over misregistered deep-navy print layers. The whole text system is customizable:
-
-- **Headline blocks** (`caption`): slam into the left column one by one, default `DEEPSEEK|HARNESS`; `|` splits lines (up to 3, blank falls back to the default), and blocks alternate ink-black/paper plates by line index
-- **Top-left brand plate** (`brandText`): a skewed ink plate, default `DEEPSEEK`, blank falls back to the default
-- **Font** (`fontFamily`): the font stack for the whole poster, empty = the built-in poster font
-- **Plates follow the text**: the ink/paper plates shrink-wrap their words — long words, long plates; short words, short plates. An overlong word is never clipped: its font shrinks proportionally inside the column (re-fit on window resize and once fonts settle)
+![constructivism1_Pic](docs/pic/constructivism1_Pic.gif)
 
 **...**
 
@@ -58,9 +53,10 @@ A constructivist poster collage built around your picture: warm-paper ground, in
 
 ![Video opening](docs/pic/5.gif)
 
-**constructivism1 (video)**
+**constructivism1-vidio**
 
-The same constructivist poster collage as above (same text params: caption blocks, brand plate, font family, plates following the text), with your video as the pure backdrop inside the polygon: the parameters carry over from the image variant (duration, caption, brandText, fontFamily, fit, accent color), plus loop `loop` (loops by default; "once" freezes the final frame after the video ends) and volume `volume` (0 = muted by default; a non-zero volume makes the engine try to unmute on the first playing event and fall back to silent playback when the browser refuses audible autoplay, so the picture never freezes). The hand-over is owned by the duration — the video playing to its natural end never ends the animation.
+![constructivism1_vidio](docs/pic/constructivism1_vidio.gif)
+
 
 ## Build
 
