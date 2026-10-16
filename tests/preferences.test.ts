@@ -25,7 +25,7 @@ describe("preferences parsing", () => {
           transitionScale: 9,
           maxDurationMs: -5,
           showSkipHint: "yes",
-          animationByKind: { image: "grid-reveal-spread" },
+          animationByKind: { image: "grid-mouse" },
         }),
       ),
     );
@@ -35,7 +35,7 @@ describe("preferences parsing", () => {
     expect(prefs.maxDurationMs).toBe(3000); // valid number → clamped, not reset to default
     expect(prefs.showSkipHint).toBe(true); // non-boolean → default
     expect(prefs.animationByKind.video).toBe(DEFAULT_PREFERENCES.animationByKind.video);
-    expect(prefs.animationByKind.image).toBe("grid-reveal-spread");
+    expect(prefs.animationByKind.image).toBe("grid-mouse");
   });
 
   it("round-trips through the persisted key", () => {

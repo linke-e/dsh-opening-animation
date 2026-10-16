@@ -9,16 +9,14 @@
 // the whole lock screen up — the reference's translateY(-100%) unlock
 // gesture — revealing the user's picture, then runtime.complete() hands over
 // to the transition. No self timeout: the overlay's image max-duration
-// watchdog is the wait bound, exactly like tap-reveal. Reduced motion
-// renders the still frame and completes at once. All visuals are plain CSS —
-// the reference's icon/font CDNs are not used.
+// watchdog is the wait bound, exactly like tap-reveal. All visuals are plain
+// CSS — the reference's icon/font CDNs are not used.
 
 import type {
   AnimationController,
   AnimationRuntime,
   OpeningAnimation,
 } from "../registry";
-import { whenDecoded } from "../dominant-color";
 
 const UNLOCK_MS = 600;
 const TRANSITION_BACKSTOP_MS = 250;
@@ -56,10 +54,6 @@ export class GlassEngine implements AnimationController {
   private readonly onUnderLoad = (): void => {
     if (this.destroyed) return;
     this.runtime.markLoaded?.();
-    whenDecoded(this.under, () => {
-      if (this.destroyed || this.completed) return;
-      if (this.runtime.reducedMotion) this.markCompleted();
-    });
   };
 
   private readonly onUnderError = (): void => {
@@ -96,7 +90,6 @@ export class GlassEngine implements AnimationController {
 
     this.root = document.createElement("div");
     this.root.className = "dsh-opening-glass";
-    if (runtime.reducedMotion) this.root.classList.add("dsh-opening-glass-reduced");
 
     this.under = document.createElement("img");
     this.under.className = "dsh-opening-glass-under";

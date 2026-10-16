@@ -35,7 +35,7 @@ import {
   type MediaKind,
   type OpeningAnimation,
 } from "./registry";
-import { removeCriticalStyles } from "./styles";
+import { removeCriticalStyles, removeEarlyCover } from "./styles";
 import { getTransition } from "./transitions";
 
 export type OpeningError = "storage" | "invalid-file" | "unsupported-codec" | "mutation" | "capacity" | "quota";
@@ -85,6 +85,9 @@ const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/x-matroska"]);
 const SKIN_DB_NAME = "dsh-custom-skin";
 const SKIN_STORE = "wallpapers";
 const SKIN_MAX_IMAGES = 24;
+/** The early cover lifts this long after a successful mount so the overlay's
+ * first painted frame is on screen before the cover is gone. */
+const EARLY_COVER_LIFT_MS = 50;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const kindOfType = (type: string): MediaKind => (VIDEO_TYPES.has(type) ? "video" : "image");
@@ -202,11 +205,21 @@ export class OpeningController {
             writeLastPlayedImageId(startupId);
           }
         }
-        this.playOnce(false, startupId);
+        this.playOnce(startupId);
+      } else {
+        // Nothing will play on this load (disabled, already played, or the
+        // active id is stale — another tab removed the media while the
+        // preferences survived). Un-pend and lift the early cover without a
+        // trace; otherwise the cover would hang out its full 4s fail-safe and
+        // the pending attribute plus the critical rule would stay forever.
+        this.teardownPending();
       }
     } catch (err) {
       console.warn("[dsh-opening-animation] local media storage unavailable", err);
       this.teardownPending();
+      // The storage endpoint lifts the early cover unconditionally (also
+      // covered inside teardownPending; idempotent by contract).
+      removeEarlyCover();
       this.publish({ ...this.snapshot, ready: true, error: "storage" });
     }
   }
@@ -400,13 +413,12 @@ export class OpeningController {
     this.persist();
   }
 
-  /** Replay the current configuration immediately (independent of the once-per-document guard).
-   * A preview is an explicit request to watch the animation, so it plays even under
-   * prefers-reduced-motion; only the unattended startup playback honors the setting. */
+  /** Replay the current configuration immediately (independent of the
+   * once-per-document guard and of the startup media rotation). */
   preview(): void {
     if (this.disposed || this.activeRunner !== undefined) return;
     if (this.snapshot.activeId === undefined) return;
-    this.playOnce(true);
+    this.playOnce();
   }
 
   dispose(): void {
@@ -421,7 +433,7 @@ export class OpeningController {
     this.listeners.clear();
   }
 
-  private playOnce(forceMotion = false, mediaId: string | undefined = this.snapshot.activeId): void {
+  private playOnce(mediaId: string | undefined = this.snapshot.activeId): void {
     if (this.disposed || this.activeRunner !== undefined) return;
     const snapshot = this.snapshot;
     if (mediaId === undefined) {
@@ -447,7 +459,6 @@ export class OpeningController {
       this.teardownPending();
       return;
     }
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches && !forceMotion;
     this.publish({ ...snapshot, playing: true });
     const runner = new OverlayRunner({
       animation,
@@ -456,7 +467,6 @@ export class OpeningController {
       transitionScale: snapshot.transitionScale,
       maxDurationMs: snapshot.maxDurationMs,
       showSkipHint: snapshot.showSkipHint,
-      reducedMotion,
       params: this.mergeParams(animation),
       t: this.t,
       onDone: () => {
@@ -467,8 +477,13 @@ export class OpeningController {
     this.activeRunner = runner;
     try {
       runner.mount();
+      // The early cover sits one z-level above the overlay; hold it 50ms past
+      // the mount so the overlay's first painted frame is on screen when the
+      // cover lifts and the hand-off stays seamless.
+      window.setTimeout(removeEarlyCover, EARLY_COVER_LIFT_MS);
     } catch (err) {
       console.warn("[dsh-opening-animation] overlay mount failed", err);
+      removeEarlyCover();
       runner.abort();
     }
   }
@@ -503,6 +518,7 @@ export class OpeningController {
   private teardownPending(): void {
     delete document.documentElement.dataset.dshOpeningPending;
     removeCriticalStyles();
+    removeEarlyCover();
   }
 
   private mergeParams(animation: OpeningAnimation): Record<string, unknown> {

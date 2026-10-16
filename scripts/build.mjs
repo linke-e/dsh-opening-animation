@@ -13,7 +13,8 @@ const pkg = JSON.parse(await import("node:fs/promises").then((fs) => fs.readFile
 
 await mkdir(path.join(root, "lib"), { recursive: true });
 
-// Host entry: empty apply(), zero dependencies, plain ESM like the skin host artifact.
+// Host entry: index-inject listener only (no host imports, no npm
+// dependencies), plain ESM like the skin host artifact.
 await build({
   entryPoints: [path.join(root, "src/index.ts")],
   outfile: path.join(root, "lib/index.js"),

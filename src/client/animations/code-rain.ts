@@ -114,11 +114,6 @@ export class CodeRainEngine implements AnimationController {
     if (this.destroyed) return;
     this.prepare();
     this.runtime.markLoaded?.();
-    if (this.runtime.reducedMotion) {
-      this.renderFinal();
-      this.markCompleted();
-      return;
-    }
     this.startTime = performance.now();
     this.rafId = requestAnimationFrame(this.frame);
   };

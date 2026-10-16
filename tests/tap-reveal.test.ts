@@ -15,7 +15,6 @@ function makeRuntime(): AnimationRuntime {
   return {
     container,
     media: MEDIA,
-    reducedMotion: false,
     params: {},
     t: (key) => key,
     complete: () => {},

@@ -38,11 +38,6 @@ export class TapRevealEngine implements AnimationController {
     whenDecoded(this.img, () => {
       if (this.destroyed) return;
       this.root.style.background = extractDominantColor(this.img);
-      if (this.runtime.reducedMotion) {
-        this.showFull();
-        this.markCompleted();
-        return;
-      }
       this.hint.classList.add("dsh-opening-hint-show");
     });
   };

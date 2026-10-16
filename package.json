@@ -1,6 +1,6 @@
 {
   "name": "dsh-opening-animation",
-  "version": "0.4.2",
+  "version": "0.7.0",
   "description": "Opening animation overlay for DeepSeek Harness Web: user-picked image animations or a video, then a configurable transition hands the screen back to the UI.",
   "packageManager": "pnpm@12.10.1",
   "type": "module",

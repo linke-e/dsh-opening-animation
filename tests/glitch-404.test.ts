@@ -6,14 +6,13 @@ import {
 } from "../src/client/animations/glitch-404";
 import { listAnimations, resolveAnimation, resolveAnimationParams } from "../src/client/registry";
 
-function makeRuntime(params: Readonly<Record<string, unknown>> = {}, reducedMotion = false) {
+function makeRuntime(params: Readonly<Record<string, unknown>> = {}) {
   const calls = { complete: 0, fail: 0, markLoaded: 0 };
   return {
     calls,
     runtime: {
       container: document.createElement("div"),
       media: { url: "data:image/png;base64,AAAA", kind: "image" as const, mime: "image/png", name: "t.png" },
-      reducedMotion,
       params,
       t: (key: string) => key,
       markLoaded: () => {
@@ -164,20 +163,6 @@ describe("glitch-404 engine lifecycle (jsdom)", () => {
     engine.destroy();
     img.dispatchEvent(new Event("error"));
     expect(calls.fail).toBe(1);
-  });
-
-  it("completes at once under reduced motion, on the black final frame", async () => {
-    const { runtime, calls } = makeRuntime({}, true);
-    const engine = new Glitch404Engine(runtime);
-    engine.start();
-    fireImageLoad(engine);
-    await flush();
-    expect(calls.complete).toBe(1);
-    const fade = runtime.container.querySelector<HTMLElement>(".dsh-opening-g404-fade");
-    expect(fade?.style.opacity).toBe("1");
-    engine.skip();
-    expect(calls.complete).toBe(1);
-    engine.destroy();
   });
 
   it("strobes until durationMs, then sinks into black and completes", async () => {

@@ -96,11 +96,6 @@ export class Glitch404Engine implements AnimationController {
         // color through this variable; the four colored spans stay as-is.
         this.root.style.setProperty("--dsh-g404-text", invertColor(extractDominantColor(this.img)));
       }
-      if (this.runtime.reducedMotion) {
-        this.renderFinal();
-        this.markCompleted();
-        return;
-      }
       // The run class starts every reference animation at once: the strobe
       // pairs, and the noise-3 warp on the error block and the info line.
       this.root.classList.add("dsh-opening-g404-run");

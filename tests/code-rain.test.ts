@@ -6,14 +6,13 @@ import {
 } from "../src/client/animations/code-rain";
 import { listAnimations, resolveAnimation, resolveAnimationParams } from "../src/client/registry";
 
-function makeRuntime(params: Readonly<Record<string, unknown>> = {}, reducedMotion = false) {
+function makeRuntime(params: Readonly<Record<string, unknown>> = {}) {
   const calls = { complete: 0, fail: 0, markLoaded: 0 };
   return {
     calls,
     runtime: {
       container: document.createElement("div"),
       media: { url: "data:image/png;base64,AAAA", kind: "image" as const, mime: "image/png", name: "t.png" },
-      reducedMotion,
       params,
       t: (key: string) => key,
       markLoaded: () => {
@@ -83,21 +82,6 @@ describe("code-rain engine lifecycle (jsdom, no 2d context)", () => {
     engine.skip();
     expect(calls.complete).toBe(1);
     engine.skip(); // idempotent
-    expect(calls.complete).toBe(1);
-    engine.destroy();
-  });
-
-  it("reports readiness and completes exactly once on reduced motion at image load", () => {
-    const { runtime, calls } = makeRuntime({}, true);
-    const engine = new CodeRainEngine(runtime);
-    engine.start();
-    const img = Reflect.get(engine, "img") as HTMLImageElement;
-    Object.defineProperty(img, "complete", { value: true, configurable: true });
-    Object.defineProperty(img, "naturalWidth", { value: 4, configurable: true });
-    img.dispatchEvent(new Event("load"));
-    expect(calls.markLoaded).toBe(1);
-    expect(calls.complete).toBe(1);
-    engine.skip();
     expect(calls.complete).toBe(1);
     engine.destroy();
   });

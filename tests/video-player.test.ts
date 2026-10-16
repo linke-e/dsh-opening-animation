@@ -12,7 +12,6 @@ function makeRuntime(params: Readonly<Record<string, unknown>> = {}) {
     runtime: {
       container: document.createElement("div"),
       media: { url: "data:video/mp4;base64,AAAA", kind: "video" as const, mime: "video/mp4", name: "t.mp4" },
-      reducedMotion: false,
       params,
       t: (key: string) => key,
       markLoaded: () => {},
@@ -64,6 +63,10 @@ function fadeTimerOf(engine: VideoPlayerEngine): unknown {
   return Reflect.get(engine, "fadeTimer");
 }
 
+function fadeInTimerOf(engine: VideoPlayerEngine): unknown {
+  return Reflect.get(engine, "fadeInTimer");
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
@@ -83,13 +86,24 @@ describe("video-player registry entry", () => {
       offsetY: 0,
       volume: 100,
       fadeOutMs: 1500,
+      fadeInMs: 1000,
     });
-    const clamped = resolveAnimationParams(videoPlayerAnimation, { volume: 999, fadeOutMs: 99999 });
+    const clamped = resolveAnimationParams(videoPlayerAnimation, {
+      volume: 999,
+      fadeOutMs: 99999,
+      fadeInMs: 99999,
+    });
     expect(clamped.volume).toBe(100);
     expect(clamped.fadeOutMs).toBe(10000);
-    const muted = resolveAnimationParams(videoPlayerAnimation, { volume: -5, fadeOutMs: -5 });
+    expect(clamped.fadeInMs).toBe(10000);
+    const muted = resolveAnimationParams(videoPlayerAnimation, {
+      volume: -5,
+      fadeOutMs: -5,
+      fadeInMs: -5,
+    });
     expect(muted.volume).toBe(0);
     expect(muted.fadeOutMs).toBe(0);
+    expect(muted.fadeInMs).toBe(0);
   });
 });
 
@@ -419,5 +433,210 @@ describe("video-player end-of-playback audio fade", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("video-player start-of-playback audio fade-in", () => {
+  // The fade-in steps on the same 50 ms interval (TICK_MS inside the engine).
+  const TICK = 50;
+
+  it("ramps the volume up linearly and stops itself at the configured volume", () => {
+    vi.useFakeTimers();
+    try {
+      const { runtime } = makeRuntime({ volume: 50, fadeInMs: 1000 });
+      const engine = new VideoPlayerEngine(runtime);
+      const video = videoOf(engine);
+      Object.defineProperty(video, "paused", { value: false, configurable: true });
+      engine.start();
+      // no user activation injected: the behavior probe always tries to
+      // unmute, and audible autoplay "allowed" (paused=false) arms the fade-in
+      video.dispatchEvent(new Event("playing"));
+      expect(video.muted).toBe(false);
+      expect(fadeInTimerOf(engine)).not.toBeNull();
+      // the ramp starts from true silence: the unmute probe wrote the full
+      // target volume, and without the immediate zero the first tick (up to
+      // 50 ms away) would play at 100% — the pop the fade exists to prevent
+      expect(video.volume).toBe(0);
+      // constant gain = a linear ramp: after n ticks the volume is
+      // targetVolume * (n * TICK / 1000)
+      for (let n = 1; n <= 19; n += 1) {
+        vi.advanceTimersByTime(TICK);
+        expect(video.volume).toBeCloseTo(0.5 * ((n * TICK) / 1000), 6);
+      }
+      // the 20th tick reaches the window end (1000 ms): exact volume, stop
+      vi.advanceTimersByTime(TICK);
+      expect(video.volume).toBeCloseTo(0.5, 6);
+      expect(fadeInTimerOf(engine)).toBeNull(); // the interval stopped itself
+      vi.advanceTimersByTime(2000); // no more ticks — the volume stays put
+      expect(video.volume).toBeCloseTo(0.5, 6);
+      engine.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not fade in at all when fadeInMs is 0", () => {
+    const { runtime } = makeRuntime({ volume: 50, fadeInMs: 0 });
+    const engine = new VideoPlayerEngine(runtime);
+    const video = videoOf(engine);
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
+    engine.start();
+    video.dispatchEvent(new Event("playing"));
+    expect(video.muted).toBe(false);
+    expect(video.volume).toBeCloseTo(0.5, 6); // straight to the target volume
+    expect(fadeInTimerOf(engine)).toBeNull(); // no listener, no timer, ever
+    engine.destroy();
+  });
+
+  it("does not start the fade-in when the unmute falls back to silent", () => {
+    vi.useFakeTimers();
+    try {
+      const { runtime } = makeRuntime({ volume: 50, fadeInMs: 1000 });
+      const engine = new VideoPlayerEngine(runtime);
+      const video = videoOf(engine);
+      // jsdom videos report paused=true by default: the unmute probe trips
+      // the synchronous policy pause and the engine falls back to muted
+      engine.start();
+      video.dispatchEvent(new Event("playing"));
+      expect(video.muted).toBe(true); // the fallback muted the video again
+      expect(fadeInTimerOf(engine)).toBeNull(); // no fade-in was armed
+      vi.advanceTimersByTime(2000);
+      // silent from here on: the volume keeps the value the unmute probe
+      // applied, and no ramp is rewriting it
+      expect(video.volume).toBeCloseTo(0.5, 6);
+      engine.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("starts the fade-in when the hint click unmutes", () => {
+    vi.useFakeTimers();
+    try {
+      const { runtime } = makeRuntime({ volume: 50, fadeInMs: 1000 });
+      const engine = new VideoPlayerEngine(runtime);
+      const video = videoOf(engine);
+      engine.start();
+      video.dispatchEvent(new Event("playing")); // policy fallback: muted + hint
+      expect(video.muted).toBe(true);
+      const hint = runtime.container.querySelector<HTMLElement>(".dsh-opening-unmute-hint");
+      expect(hint).not.toBeNull();
+      Object.defineProperty(video, "paused", { value: false, configurable: true }); // the gesture lets it play
+      hint!.dispatchEvent(new Event("click", { bubbles: true }));
+      expect(video.muted).toBe(false);
+      expect(fadeInTimerOf(engine)).not.toBeNull(); // the fade-in took over
+      // same linear ramp, rising from (near) silence toward 0.5
+      for (let n = 1; n <= 5; n += 1) {
+        vi.advanceTimersByTime(TICK);
+        expect(video.volume).toBeCloseTo(0.5 * ((n * TICK) / 1000), 6);
+      }
+      engine.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("hands over to the fade-out: the fade-in stops and the fade-out continues from the current volume", () => {
+    vi.useFakeTimers();
+    try {
+      const { runtime } = makeRuntime({ volume: 50, fadeInMs: 10000, fadeOutMs: 1500 });
+      const engine = new VideoPlayerEngine(runtime);
+      const video = videoOf(engine);
+      Object.defineProperty(video, "paused", { value: false, configurable: true });
+      Object.defineProperty(video, "duration", { value: 10, configurable: true });
+      engine.start();
+      video.dispatchEvent(new Event("playing")); // fade-in armed
+      expect(fadeInTimerOf(engine)).not.toBeNull();
+      vi.advanceTimersByTime(2 * TICK); // 100 ms into the ramp
+      const volumeIntoFadeOut = 0.5 * ((2 * TICK) / 10000);
+      expect(video.volume).toBeCloseTo(volumeIntoFadeOut, 6);
+      // enter the fade-out window: 1000 ms left < fadeOutMs 1500
+      Object.defineProperty(video, "currentTime", { value: 9, configurable: true });
+      video.dispatchEvent(new Event("timeupdate"));
+      expect(fadingOf(engine)).toBe(true);
+      expect(fadeInTimerOf(engine)).toBeNull(); // the fade-in was stopped
+      // the exponential fade-out starts from the current (mid-ramp) volume
+      vi.advanceTimersByTime(TICK);
+      expect(video.volume).toBeCloseTo(volumeIntoFadeOut * 0.01 ** (TICK / 1500), 6);
+      engine.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("video-player unmute hint", () => {
+  /** Enter the policy-rejected scenario: jsdom videos report paused=true by
+   * default, so the unmute probe on playing "pauses" the video synchronously
+   * and the engine falls back to muted playback (and shows the hint). No
+   * userActivation is needed — the new implementation never gates on it. */
+  function startPolicyRejected(engine: VideoPlayerEngine): HTMLVideoElement {
+    const video = videoOf(engine);
+    engine.start();
+    video.dispatchEvent(new Event("playing"));
+    return video;
+  }
+
+  it("shows the click-for-sound hint after the policy forces a silent fallback", () => {
+    const { runtime } = makeRuntime({ volume: 50 });
+    const engine = new VideoPlayerEngine(runtime);
+    const video = startPolicyRejected(engine);
+    expect(video.muted).toBe(true); // the fallback muted the video again
+    const hint = runtime.container.querySelector(".dsh-opening-unmute-hint");
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe("video.unmuteHint"); // t is an identity function
+    engine.destroy();
+  });
+
+  it("shows no hint when the user configured a silent volume", () => {
+    const { runtime } = makeRuntime({ volume: 0, fadeOutMs: 0 });
+    const engine = new VideoPlayerEngine(runtime);
+    startPolicyRejected(engine);
+    expect(runtime.container.querySelector(".dsh-opening-unmute-hint")).toBeNull();
+    engine.destroy();
+  });
+
+  it("unmutes on the hint click without skipping the opening", () => {
+    const { runtime, calls } = makeRuntime({ volume: 50 });
+    const engine = new VideoPlayerEngine(runtime);
+    const video = startPolicyRejected(engine);
+    // the overlay's click-anywhere-to-skip handler lives at the container
+    // root: the hint's click must stopPropagation before it gets there
+    const containerClicks = vi.fn();
+    runtime.container.addEventListener("click", containerClicks);
+    const hint = runtime.container.querySelector<HTMLElement>(".dsh-opening-unmute-hint");
+    expect(hint).not.toBeNull();
+    Object.defineProperty(video, "paused", { value: false, configurable: true }); // the gesture lets it play
+    hint!.dispatchEvent(new Event("click", { bubbles: true }));
+    expect(video.muted).toBe(false);
+    expect(video.volume).toBeCloseTo(0.5, 6); // volume param 50 → 0.5
+    expect(runtime.container.querySelector(".dsh-opening-unmute-hint")).toBeNull();
+    expect(containerClicks).not.toHaveBeenCalled(); // stopPropagation held
+    expect(calls.complete).toBe(0); // the hint click never skips the opening
+    engine.destroy();
+  });
+
+  it("never shows more than one hint across repeated fallback paths", () => {
+    const { runtime } = makeRuntime({ volume: 50 });
+    const engine = new VideoPlayerEngine(runtime);
+    const video = startPolicyRejected(engine);
+    expect(runtime.container.querySelectorAll(".dsh-opening-unmute-hint")).toHaveLength(1);
+    // a repeated playing event early-exits (already unmuted) — no second hint
+    video.dispatchEvent(new Event("playing"));
+    expect(runtime.container.querySelectorAll(".dsh-opening-unmute-hint")).toHaveLength(1);
+    // the async policy-rejection path falls back again on pause — the
+    // existing hint is reused, never duplicated
+    video.dispatchEvent(new Event("pause"));
+    expect(runtime.container.querySelectorAll(".dsh-opening-unmute-hint")).toHaveLength(1);
+    engine.destroy();
+  });
+
+  it("removes the hint together with the engine on destroy", () => {
+    const { runtime } = makeRuntime({ volume: 50 });
+    const engine = new VideoPlayerEngine(runtime);
+    startPolicyRejected(engine);
+    expect(runtime.container.querySelector(".dsh-opening-unmute-hint")).not.toBeNull();
+    engine.destroy();
+    expect(runtime.container.querySelector(".dsh-opening-unmute-hint")).toBeNull();
   });
 });

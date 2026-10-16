@@ -46,11 +46,6 @@ export class WipeRevealEngine implements AnimationController {
     whenDecoded(this.img, () => {
       if (this.destroyed) return;
       this.root.style.background = extractDominantColor(this.img);
-      if (this.runtime.reducedMotion) {
-        this.showFinal();
-        this.markCompleted();
-        return;
-      }
       this.beginRun();
     });
   };

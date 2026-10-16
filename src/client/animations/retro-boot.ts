@@ -13,7 +13,7 @@
 // Asset roles follow actual image content, not the task labels: logo1 is the
 // bare whale (opening), logo2 is whale+wordmark (mid-run freeze).
 // Deviations from the page: completion calls runtime.complete() at the 10s
-// freeze, skip()/reduced-motion render the final frame, the backdrop picture
+// freeze, skip() renders the final frame, the backdrop picture
 // failing to load degrades to black instead of failing the run.
 
 import type {
@@ -331,11 +331,6 @@ export class RetroBootEngine implements AnimationController {
       // black and the run continues.
       this.backdrop = await loadImage(this.runtime.media.url).catch(() => undefined);
       if (this.destroyed) return;
-      if (this.runtime.reducedMotion) {
-        this.renderFrame(this.tl.total);
-        this.markCompleted();
-        return;
-      }
       this.tunnelLayers = buildTunnelLayers(this.seed, this.tunnelCount);
       this.measure();
       this.startTime = performance.now();

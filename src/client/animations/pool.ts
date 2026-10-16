@@ -267,7 +267,7 @@ export class PoolEngine implements AnimationController {
   private readonly onImgLoad = (): void => {
     if (this.destroyed) return;
     this.runtime.markLoaded?.();
-    if (this.runtime.reducedMotion || this.ctx === null) {
+    if (this.ctx === null) {
       this.showClean(false);
       this.markCompleted();
       return;

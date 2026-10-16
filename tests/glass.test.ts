@@ -9,14 +9,13 @@ import { listAnimations, resolveAnimation, resolveAnimationParams } from "../src
 
 const MEDIA_URL = "data:image/png;base64,AAAA";
 
-function makeRuntime(params: Readonly<Record<string, unknown>> = {}, reducedMotion = false) {
+function makeRuntime(params: Readonly<Record<string, unknown>> = {}) {
   const calls = { complete: 0, fail: 0, markLoaded: 0 };
   return {
     calls,
     runtime: {
       container: document.createElement("div"),
       media: { url: MEDIA_URL, kind: "image" as const, mime: "image/png", name: "t.png" },
-      reducedMotion,
       params,
       t: (key: string) => key,
       markLoaded: () => {
@@ -179,17 +178,6 @@ describe("glass layered lock screen (jsdom)", () => {
     expect(calls.complete).toBe(0);
     vi.advanceTimersByTime(850);
     expect(calls.complete).toBe(1);
-    engine.destroy();
-  });
-
-  it("completes at once under reduced motion and never registers the slide", async () => {
-    const { runtime, calls } = makeRuntime({}, true);
-    const engine = new GlassEngine(runtime);
-    engine.start();
-    fireUnderLoad(engine);
-    await flush();
-    expect(calls.complete).toBe(1);
-    expect(runtime.container.querySelector(".dsh-opening-glass-reduced")).not.toBeNull();
     engine.destroy();
   });
 

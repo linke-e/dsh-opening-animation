@@ -9,7 +9,7 @@ import { OpeningController } from "./controller";
 import { NS, en, zh } from "./locales";
 import { parsePreferences, type OpeningPreferences } from "./preferences";
 import "./registry";
-import { installCriticalStyles, installStyles, removeCriticalStyles } from "./styles";
+import { installCriticalStyles, installEarlyCover, installStyles, removeCriticalStyles } from "./styles";
 import { OpeningSection } from "./ui/OpeningSection";
 
 export const inject = ["slots", "locale"];
@@ -58,6 +58,15 @@ try {
     earlyPrefs = parsed;
     document.documentElement.dataset.dshOpeningPending = "1";
     installCriticalStyles();
+    // Earliest possible cover of the host splash and the app's first frame.
+    // Fail-open on its own try/catch: a broken cover install must not undo the
+    // pending branch above (the controller lifts the cover on every load()
+    // endpoint, and the 4s fail-safe removes it regardless).
+    try {
+      installEarlyCover();
+    } catch (err) {
+      console.warn("[dsh-opening-animation] early cover install failed", err);
+    }
   }
 } catch (err) {
   console.warn("[dsh-opening-animation] pre-boot preference check failed", err);

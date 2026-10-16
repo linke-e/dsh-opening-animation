@@ -10,17 +10,3 @@ if (typeof owner.createObjectURL !== "function") {
 if (typeof owner.revokeObjectURL !== "function") {
   owner.revokeObjectURL = (): void => {};
 }
-
-// jsdom does not implement matchMedia; the controller reads reduced-motion through it.
-if (typeof window.matchMedia !== "function") {
-  window.matchMedia = ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-}

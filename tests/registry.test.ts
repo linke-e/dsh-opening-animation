@@ -25,11 +25,12 @@ const def: OpeningAnimation = {
 describe("animation registry", () => {
   it("resolves built-in animations by id and kind", () => {
     expect(resolveAnimation("image", "pool")?.id).toBe("pool");
-    expect(resolveAnimation("image", "grid-reveal-spread")?.id).toBe("grid-reveal-spread");
+    expect(resolveAnimation("image", "grid-mouse")?.id).toBe("grid-mouse");
     expect(resolveAnimation("image", "retro-boot")?.id).toBe("retro-boot");
     expect(resolveAnimation("image", "tap-reveal")?.id).toBe("tap-reveal");
     expect(resolveAnimation("image", "wipe-reveal")?.id).toBe("wipe-reveal");
     expect(resolveAnimation("video", "video-player")?.id).toBe("video-player");
+    expect(resolveAnimation("video", "constructivism1-video")?.id).toBe("constructivism1-video");
   });
 
   it("refuses kind mismatches and unknown ids", () => {
@@ -46,7 +47,9 @@ describe("animation registry", () => {
     expect(ids).toContain("retro-boot");
     expect(ids).toContain("tap-reveal");
     expect(ids).toContain("wipe-reveal");
-    expect(listAnimations("video").map((animation) => animation.id)).toEqual(["video-player"]);
+    const videoIds = listAnimations("video").map((animation) => animation.id);
+    expect(videoIds).toContain("video-player");
+    expect(videoIds).toContain("constructivism1-video");
   });
 
   it("registers and unregisters without disturbing others", () => {

@@ -17,7 +17,6 @@ export interface OverlayRunnerOptions {
   /** Image animations only; videos always play to the end. */
   maxDurationMs: number;
   showSkipHint: boolean;
-  reducedMotion: boolean;
   /** Merged engine parameters (read for the overlay backdrop color). */
   params: Readonly<Record<string, unknown>>;
   t: (key: string) => string;
@@ -120,7 +119,6 @@ export class OverlayRunner {
     const runtime: AnimationRuntime = {
       container: stage,
       media: this.opts.media,
-      reducedMotion: this.opts.reducedMotion,
       params: this.opts.params,
       t: this.opts.t,
       markLoaded: () => this.markLoaded(),
@@ -246,10 +244,10 @@ export class OverlayRunner {
     this.stageEl?.removeEventListener("timeupdate", this.onTimeUpdate, true);
 
     const preset = this.opts.transition;
-    const scale = this.opts.reducedMotion ? 0 : this.opts.transitionScale;
-    const exitMs = Math.max(1, Math.round(this.opts.reducedMotion ? 250 : preset.exitMs * scale));
-    const enterMs = Math.max(1, Math.round(this.opts.reducedMotion ? 250 : preset.enterMs * scale));
-    const enterDelay = Math.round(this.opts.reducedMotion ? 0 : preset.enterDelayMs * scale);
+    const scale = this.opts.transitionScale;
+    const exitMs = Math.max(1, Math.round(preset.exitMs * scale));
+    const enterMs = Math.max(1, Math.round(preset.enterMs * scale));
+    const enterDelay = Math.round(preset.enterDelayMs * scale);
 
     this.rootEl?.style.setProperty("--dsh-opening-exit-ms", `${exitMs}ms`);
     this.rootEl?.classList.add(preset.exitClass);

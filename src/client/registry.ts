@@ -5,9 +5,10 @@
 
 import { poolAnimation } from "./animations/pool";
 import { codeRainAnimation } from "./animations/code-rain";
+import { constructivism1Animation, constructivism1VideoAnimation } from "./animations/constructivism1";
 import { glassAnimation } from "./animations/glass";
 import { glitch404Animation } from "./animations/glitch-404";
-import { gridRevealSpreadAnimation } from "./animations/grid-reveal-spread";
+import { gridMouseAnimation } from "./animations/grid-mouse";
 import { retroBootAnimation } from "./animations/retro-boot";
 import { tapRevealAnimation } from "./animations/tap-reveal";
 import { videoPlayerAnimation } from "./animations/video-player";
@@ -27,7 +28,6 @@ export interface AnimationRuntime {
   /** The engine's only canvas: the .dsh-opening-stage node. Engines must not touch anything outside it. */
   container: HTMLElement;
   media: ResolvedMedia;
-  reducedMotion: boolean;
   /** Defaults merged with user paramOverrides; read-only. */
   params: Readonly<Record<string, unknown>>;
   /** Locale function bound to this plugin's namespace. */
@@ -63,7 +63,7 @@ export interface ParamSpec {
 }
 
 export interface OpeningAnimation {
-  /** "pool" | "grid-reveal-spread" | "tap-reveal" | "video-player" | "wipe-reveal" | ... */
+  /** "pool" | "grid-mouse" | "tap-reveal" | "video-player" | "wipe-reveal" | ... */
   id: string;
   /** Which media kind this animation consumes. */
   kind: MediaKind;
@@ -125,9 +125,11 @@ function clampToSpec(value: number, spec: ParamSpec): number {
 
 registerAnimation(poolAnimation);
 registerAnimation(codeRainAnimation);
+registerAnimation(constructivism1Animation);
+registerAnimation(constructivism1VideoAnimation);
 registerAnimation(glassAnimation);
 registerAnimation(glitch404Animation);
-registerAnimation(gridRevealSpreadAnimation);
+registerAnimation(gridMouseAnimation);
 registerAnimation(retroBootAnimation);
 registerAnimation(tapRevealAnimation);
 registerAnimation(videoPlayerAnimation);
