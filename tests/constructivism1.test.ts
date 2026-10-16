@@ -77,13 +77,17 @@ describe("constructivism1 registry entries", () => {
     expect(constructivism1Animation.labelKey).toBe(constructivism1VideoAnimation.labelKey);
     expect(resolveAnimationParams(constructivism1Animation)).toEqual({
       durationMs: 6500,
-      caption: "",
+      caption: "DEEPSEEK|HARNESS",
+      brandText: "DEEPSEEK",
+      fontFamily: "",
       mediaFit: "cover",
       accentColor: "#173F9E",
     });
     expect(resolveAnimationParams(constructivism1VideoAnimation)).toEqual({
       durationMs: 6500,
-      caption: "",
+      caption: "DEEPSEEK|HARNESS",
+      brandText: "DEEPSEEK",
+      fontFamily: "",
       mediaFit: "cover",
       accentColor: "#173F9E",
       loop: "loop",
@@ -195,6 +199,65 @@ describe("constructivism1 image variant (jsdom)", () => {
     mediaOf(engine).dispatchEvent(new Event("error"));
     expect(calls.fail).toBe(1);
     engine.destroy();
+  });
+});
+
+describe("constructivism1 text params (jsdom)", () => {
+  it("defaults the brand plate to DEEPSEEK and honors a custom, blank-falling-back text", () => {
+    const { runtime } = makeRuntime();
+    const engine = new Constructivism1Engine(runtime);
+    engine.start();
+    expect(runtime.container.querySelector<HTMLElement>(".dsh-opening-cst-brand")?.textContent).toBe("DEEPSEEK");
+    engine.destroy();
+
+    const custom = makeRuntime({ brandText: "  ZAI HARNESS  " });
+    const engine2 = new Constructivism1Engine(custom.runtime);
+    engine2.start();
+    expect(custom.runtime.container.querySelector<HTMLElement>(".dsh-opening-cst-brand")?.textContent).toBe(
+      "ZAI HARNESS",
+    );
+    engine2.destroy();
+
+    const blank = makeRuntime({ brandText: "   " });
+    const engine3 = new Constructivism1Engine(blank.runtime);
+    engine3.start();
+    expect(blank.runtime.container.querySelector<HTMLElement>(".dsh-opening-cst-brand")?.textContent).toBe("DEEPSEEK");
+    engine3.destroy();
+  });
+
+  it("injects a non-empty fontFamily as --cst-font and leaves it unset when empty", () => {
+    const custom = makeRuntime({ fontFamily: " 'Noto Sans SC', sans-serif " });
+    const engine = new Constructivism1Engine(custom.runtime);
+    engine.start();
+    const root = custom.runtime.container.querySelector<HTMLElement>(".dsh-opening-cst")!;
+    expect(root.style.getPropertyValue("--cst-font")).toBe("'Noto Sans SC', sans-serif");
+    engine.destroy();
+
+    const { runtime } = makeRuntime();
+    const engine2 = new Constructivism1Engine(runtime);
+    engine2.start();
+    expect(
+      runtime.container.querySelector<HTMLElement>(".dsh-opening-cst")!.style.getPropertyValue("--cst-font"),
+    ).toBe("");
+    engine2.destroy();
+  });
+
+  it("keeps the poster plates shrink-wrapped: blocks fit their words, the brand plate is capped", () => {
+    // The plates must track their text's length in CSS (the ink/paper plates
+    // grow and shrink with the words); jsdom cannot lay out, so assert the
+    // stylesheet contract instead.
+    const blockAt = GLOBAL_STYLES.indexOf(".dsh-opening-cst-block {");
+    const blockRule = GLOBAL_STYLES.slice(blockAt, GLOBAL_STYLES.indexOf("}", blockAt));
+    expect(blockRule).toContain("width: fit-content");
+    expect(blockRule).toContain("max-width: 100%");
+    const brandAt = GLOBAL_STYLES.indexOf(".dsh-opening-cst-brand {");
+    const brandRule = GLOBAL_STYLES.slice(brandAt, GLOBAL_STYLES.indexOf("}", brandAt));
+    expect(brandRule).toContain("max-width: 40%");
+    const rootRule = GLOBAL_STYLES.slice(
+      GLOBAL_STYLES.indexOf(".dsh-opening-cst {"),
+      GLOBAL_STYLES.indexOf("}", GLOBAL_STYLES.indexOf(".dsh-opening-cst {")),
+    );
+    expect(rootRule).toContain("font-family: var(--cst-font, system-ui, sans-serif)");
   });
 });
 

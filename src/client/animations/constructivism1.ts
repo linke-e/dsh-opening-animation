@@ -7,10 +7,14 @@
 // stroke, and misregistered blue/deep-navy under-layers add the print-offset
 // feel; an opaque solid-ink collage block presses over the window's
 // bottom-right and an irregular ink triangle over its top-right,
-// both hard-cutting in while the window unfolds. A skewed ink DEEPSEEK brand
-// plate sits top-left; caption blocks (the caption param split on "|", at
-// most three) slam down the left column on alternating ink/paper plates with
-// a ±1° collage tilt. Every element animates on the shared --cst-total
+// both hard-cutting in while the window unfolds. A skewed ink brand plate
+// sits top-left (brandText, defaulting to DEEPSEEK); caption blocks (the
+// caption param split on "|", at most three, defaulting to DEEPSEEK|HARNESS)
+// slam down the left column on alternating ink/paper plates with a ±1°
+// collage tilt; the plates shrink-wrap their text — short words, short
+// plates — and the fontFamily param (empty = the built-in poster stack)
+// overrides the whole poster's face. Every element animates on the shared
+// --cst-total
 // duration (durationMs) through its own percentage windows — no negative
 // delays: 0-6% the paper hard-cuts in while the top band sweeps across;
 // 5-18% the geometry cuts in on the steep cubic-bezier(0.85, 0, 0.15, 1);
@@ -36,8 +40,11 @@ import type {
 
 /** Built-in headline when the caption param is empty or only separators. */
 const DEFAULT_CAPTION = "DEEPSEEK|HARNESS";
-/** The brand plate text — a fixed visual mark of this engine, not a param. */
-const BRAND_TEXT = "DEEPSEEK";
+/** Built-in brand plate text when the brandText param is blank. */
+const DEFAULT_BRAND = "DEEPSEEK";
+/** The brand plate never grows past this fraction of the viewport width; a
+ * longer custom text shrinks its font instead (same fit pass as the blocks). */
+const MAX_BRAND_WIDTH_RATIO = 0.4;
 /** More than three poster blocks would crowd the left column. */
 const MAX_CAPTION_BLOCKS = 3;
 
@@ -70,6 +77,7 @@ export class Constructivism1Engine implements AnimationController {
   private readonly runtime: AnimationRuntime;
   private readonly root: HTMLDivElement;
   private readonly colEl: HTMLDivElement;
+  private readonly brandEl: HTMLDivElement;
   private readonly blockEls: HTMLDivElement[] = [];
   private readonly mediaEl: HTMLImageElement | HTMLVideoElement;
   private readonly durationMs: number;
@@ -85,7 +93,7 @@ export class Constructivism1Engine implements AnimationController {
   private unmuted = false;
 
   private readonly onResize = (): void => {
-    if (!this.destroyed) this.fitCaptionBlocks();
+    if (!this.destroyed) this.fitTextPlates();
   };
 
   private readonly onImgLoad = (): void => {
@@ -144,10 +152,14 @@ export class Constructivism1Engine implements AnimationController {
     const fit = p.mediaFit === "contain" ? "contain" : "cover";
     const accent = typeof p.accentColor === "string" ? p.accentColor.trim() : "";
     const caption = typeof p.caption === "string" ? p.caption : "";
+    const brandRaw = typeof p.brandText === "string" ? p.brandText.trim() : "";
+    const brandText = brandRaw.length > 0 ? brandRaw : DEFAULT_BRAND;
+    const fontFamily = typeof p.fontFamily === "string" ? p.fontFamily.trim() : "";
 
     this.root = div("dsh-opening-cst");
     this.root.style.setProperty("--cst-total", `${this.durationMs}ms`);
     if (accent.length > 0) this.root.style.setProperty("--cst-accent", accent);
+    if (fontFamily.length > 0) this.root.style.setProperty("--cst-font", fontFamily);
 
     const paper = div("dsh-opening-cst-paper");
     const band = div("dsh-opening-cst-band");
@@ -192,7 +204,8 @@ export class Constructivism1Engine implements AnimationController {
     const tri = div("dsh-opening-cst-tri");
 
     const brand = div("dsh-opening-cst-brand");
-    brand.textContent = BRAND_TEXT;
+    brand.textContent = brandText;
+    this.brandEl = brand;
     const col = div("dsh-opening-cst-col");
     this.colEl = col;
     captionLines(caption).forEach((line, index) => {
@@ -222,13 +235,13 @@ export class Constructivism1Engine implements AnimationController {
     // A webfont finishing after the first fit changes the text metrics —
     // re-fit once the font set settles (destroyed engines just skip).
     document.fonts?.ready.then(() => {
-      if (!this.destroyed) this.fitCaptionBlocks();
+      if (!this.destroyed) this.fitTextPlates();
     });
   }
 
   start(): void {
     if (this.destroyed || this.completed) return;
-    this.fitCaptionBlocks();
+    this.fitTextPlates();
     this.mediaEl.src = this.runtime.media.url;
     if (this.mediaEl instanceof HTMLVideoElement) this.playWithRetry(1);
     this.completeTimer = window.setTimeout(() => this.markCompleted(), this.durationMs);
@@ -273,34 +286,44 @@ export class Constructivism1Engine implements AnimationController {
   }
 
   /**
-   * The caption blocks declare no font-family — they inherit the host UI's
-   * stack, whose resolved face differs per machine: a narrow condensed face
-   * fits the 28% column, a wide 900-weight face overflows the plate clamped
-   * by `max-width: 100%` and `white-space: nowrap` paints the glyphs past
-   * the block edge. Re-baseline each block on the stylesheet clamp value,
-   * measure it unconstrained, and shrink its font-size proportionally when
-   * the natural width exceeds the column: the plate shrink-wraps the fitted
-   * text, so the composition holds for every font the host can resolve.
+   * The text plates declare no font-family — they inherit the poster's stack
+   * (the fontFamily param when set, else the host UI's), whose resolved face
+   * differs per machine: a narrow condensed face fits its budget, a wide
+   * 900-weight face overflows it. The plates themselves shrink-wrap their
+   * text (the ink/paper plates grow and shrink with the words), so the fix
+   * for overflow is the font: re-baseline each plate on the stylesheet clamp
+   * value, measure it unconstrained, and shrink its font-size proportionally
+   * when the natural width exceeds the budget. The caption blocks budget to
+   * the left column, the brand plate to its max-width fraction of the
+   * viewport — the composition holds for every font the host can resolve.
    */
-  private fitCaptionBlocks(): void {
-    const budget = this.colEl.clientWidth;
-    if (budget <= 0) return; // no layout yet (detached container)
-    for (const block of this.blockEls) {
-      block.style.fontSize = "";
-      block.style.maxWidth = "none";
-      const natural = block.offsetWidth;
-      block.style.maxWidth = "";
-      if (natural <= budget) continue;
-      const cs = getComputedStyle(block);
-      const base = Number.parseFloat(cs.fontSize);
-      const padX = Number.parseFloat(cs.paddingLeft) + Number.parseFloat(cs.paddingRight);
-      const text = natural - padX;
-      const room = budget - padX;
-      if (!Number.isFinite(base) || base <= 0 || text <= 0) continue;
-      // room <= 0 only in absurdly narrow windows; keep a visible floor.
-      const scale = Math.max(room > 0 ? room / text : 0, 0.25);
-      block.style.fontSize = `${(base * scale).toFixed(2)}px`;
+  private fitTextPlates(): void {
+    const colBudget = this.colEl.clientWidth;
+    if (colBudget > 0) {
+      for (const block of this.blockEls) this.fitPlate(block, colBudget);
     }
+    const brandBudget = Math.round(window.innerWidth * MAX_BRAND_WIDTH_RATIO);
+    if (brandBudget > 0) this.fitPlate(this.brandEl, brandBudget);
+  }
+
+  /** Fit one text plate to a pixel budget: measure it unconstrained, then
+   * shrink its font-size proportionally when the natural width exceeds the
+   * budget. A later refit with a larger budget clears the inline size. */
+  private fitPlate(el: HTMLElement, budget: number): void {
+    el.style.fontSize = "";
+    el.style.maxWidth = "none";
+    const natural = el.offsetWidth;
+    el.style.maxWidth = "";
+    if (natural <= budget) return;
+    const cs = getComputedStyle(el);
+    const base = Number.parseFloat(cs.fontSize);
+    const padX = Number.parseFloat(cs.paddingLeft) + Number.parseFloat(cs.paddingRight);
+    const text = natural - padX;
+    const room = budget - padX;
+    if (!Number.isFinite(base) || base <= 0 || text <= 0) return;
+    // room <= 0 only in absurdly narrow windows; keep a visible floor.
+    const scale = Math.max(room > 0 ? room / text : 0, 0.25);
+    el.style.fontSize = `${(base * scale).toFixed(2)}px`;
   }
 
   private markCompleted(): void {
@@ -351,7 +374,9 @@ export const constructivism1Animation: OpeningAnimation = {
   descriptionKey: "anim.constructivism1.desc",
   paramsSchema: {
     durationMs: { type: "number", default: DEFAULT_DURATION_MS, min: MIN_DURATION_MS, max: MAX_DURATION_MS, step: 250 },
-    caption: { type: "string", default: "" },
+    caption: { type: "string", default: DEFAULT_CAPTION },
+    brandText: { type: "string", default: DEFAULT_BRAND },
+    fontFamily: { type: "string", default: "" },
     mediaFit: { type: "enum", default: "cover", options: ["cover", "contain"] },
     accentColor: { type: "string", default: "#173F9E" },
   },
@@ -365,7 +390,9 @@ export const constructivism1VideoAnimation: OpeningAnimation = {
   descriptionKey: "anim.constructivism1.desc",
   paramsSchema: {
     durationMs: { type: "number", default: DEFAULT_DURATION_MS, min: MIN_DURATION_MS, max: MAX_DURATION_MS, step: 250 },
-    caption: { type: "string", default: "" },
+    caption: { type: "string", default: DEFAULT_CAPTION },
+    brandText: { type: "string", default: DEFAULT_BRAND },
+    fontFamily: { type: "string", default: "" },
     mediaFit: { type: "enum", default: "cover", options: ["cover", "contain"] },
     accentColor: { type: "string", default: "#173F9E" },
     loop: { type: "enum", default: "loop", options: ["loop", "once"] },

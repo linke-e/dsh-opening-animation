@@ -102,7 +102,7 @@ export const en = {
   "param.scale": "Video scale",
   "param.offsetX": "Offset X (% of screen)",
   "param.offsetY": "Offset Y (% of screen)",
-  "param.caption": "Caption text \u2014 [word] marks a highlight",
+  "param.caption": "Caption text (pool: [word] marks a highlight; constructivism1: | splits lines)",
   "param.captionFont": "Caption font stack",
   "param.hintText": "Hint text",
   "param.lockBg": "Lock screen background (image URL, empty = the active picture)",
@@ -111,6 +111,8 @@ export const en = {
   "param.fadeInMs": "Audio fade-in (ms, 0 = off)",
   "param.mediaFit": "Media fit",
   "param.accentColor": "Accent color (hex, default constructivist blue #173F9E)",
+  "param.brandText": "Brand plate text (top-left, default DEEPSEEK)",
+  "param.fontFamily": "Font stack (empty = built-in poster font)",
   "param.loop": "Video playback",
 };
 
@@ -213,7 +215,7 @@ export const zh = {
   "param.scale": "\u89C6\u9891\u7F29\u653E",
   "param.offsetX": "\u6C34\u5E73\u504F\u79FB\uFF08\u5C4F\u5E55\u5BBD %\uFF09",
   "param.offsetY": "\u5782\u76F4\u504F\u79FB\uFF08\u5C4F\u5E55\u9AD8 %\uFF09",
-  "param.caption": "\u5B57\u5E55\u6587\u672C\uFF08[\u8BCD] = \u5F3A\u8C03\uFF09",
+  "param.caption": "\u5B57\u5E55\u6587\u672C\uFF08pool \u7528 [\u8BCD] \u5F3A\u8C03\uFF0Cconstructivism1 \u7528 | \u5206\u884C\uFF09",
   "param.captionFont": "\u5B57\u5E55\u5B57\u4F53\u6808",
   "param.hintText": "\u63D0\u793A\u8BED",
   "param.lockBg": "\u9501\u5C4F\u80CC\u666F\u56FE\uFF08\u56FE\u7247 URL\uFF0C\u7559\u7A7A\u7528\u5F53\u524D\u56FE\u7247\uFF09",
@@ -222,5 +224,7 @@ export const zh = {
   "param.fadeInMs": "\u97F3\u9891\u6DE1\u5165\uFF08ms\uFF0C0 \u4E3A\u7981\u7528\uFF09",
   "param.mediaFit": "\u5A92\u4F53\u586B\u5145",
   "param.accentColor": "\u5F3A\u8C03\u8272\uFF08\u5341\u516D\u8FDB\u5236\uFF0C\u9ED8\u8BA4\u6784\u6210\u4E3B\u4E49\u84DD #173F9E\uFF09",
+  "param.brandText": "\u5DE6\u4E0A\u89D2\u5C0F\u5B57\u6587\u672C\uFF08\u9ED8\u8BA4 DEEPSEEK\uFF09",
+  "param.fontFamily": "\u5B57\u4F53\u6808\uFF08\u7559\u7A7A\u7528\u5185\u7F6E\u6D77\u62A5\u5B57\u4F53\uFF09",
   "param.loop": "\u89C6\u9891\u64AD\u653E",
 };

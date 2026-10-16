@@ -407,9 +407,13 @@ export const GLOBAL_STYLES = String.raw`
    ink plate (heavy stroke) plus misregistered blue/deep-navy under-layers
    (print offset); a diagonal solid-ink collage block presses
    over the window's bottom-right and an irregular ink triangle over its
-   top-right; a skewed ink DEEPSEEK brand plate top-left; caption blocks slam
+   top-right; a skewed ink brand plate top-left (the brandText param,
+   DEEPSEEK by default); caption blocks slam
    down the left column on alternating ink/paper plates with a ±1° collage
-   tilt. Every element runs on the shared --cst-total (durationMs) and stages
+   tilt — the plates shrink-wrap their text, so the ink/paper plates grow and
+   shrink with the words, and an overlong word shrinks its font instead (the
+   engine's fit pass). Every element runs on the shared --cst-total
+   (durationMs) and stages
    its own entrance in percentage windows, no negative delays: 0-6% paper
    hard-cut + top band sweep; 3-18% geometry cut-ins on
    cubic-bezier(0.85, 0, 0.15, 1); 15-32% blue wedge sweep + the media
@@ -419,14 +423,15 @@ export const GLOBAL_STYLES = String.raw`
    settle. The resting styles below ARE the final frame:
    .dsh-opening-cst-final (skip) switches the animations off and every
    element lands on its static final state. Params: --cst-total from
-   durationMs, --cst-accent from accentColor, the media object-fit from
+   durationMs, --cst-accent from accentColor, --cst-font from fontFamily
+   (empty = the built-in poster stack), the media object-fit from
    mediaFit (set inline by the engine). ---- */
 .dsh-opening-cst {
   position: absolute;
   inset: 0;
   overflow: hidden;
   background: var(--dsh-opening-bg, #04050e);
-  font-family: system-ui, sans-serif;
+  font-family: var(--cst-font, system-ui, sans-serif);
   user-select: none;
   --cst-paper: #e3d1bd;
   --cst-ink: #141414;
@@ -601,6 +606,10 @@ export const GLOBAL_STYLES = String.raw`
   left: 3.5%;
   top: 7%;
   z-index: 6;
+  /* The plate shrink-wraps its (customizable) text; a custom brand text
+     longer than this fraction of the viewport shrinks its font in the
+     engine's fit pass — the cap keeps it clear of the media window. */
+  max-width: 40%;
   padding: 1.4vh 1.2vw;
   background: var(--cst-ink);
   color: var(--cst-cream);
@@ -623,6 +632,10 @@ export const GLOBAL_STYLES = String.raw`
   gap: 1.6vh;
 }
 .dsh-opening-cst-block {
+  /* The ink/paper plate shrink-wraps its word: short words, short plates —
+     the plate width IS the word's length. An overlong word is clamped by
+     max-width and the engine's fit pass shrinks its font instead. */
+  width: fit-content;
   max-width: 100%;
   padding: 1vh 1.1vw;
   font-size: clamp(34px, 6.2vw, 128px);
