@@ -253,6 +253,92 @@ describe("constructivism1 timeline (jsdom)", () => {
   });
 });
 
+describe("constructivism1 caption fit", () => {
+  /** Instance-level layout stubs: jsdom defines offsetWidth on
+   * HTMLElement.prototype and clientWidth on Element.prototype, so the stubs
+   * are own properties on the measured elements (an own property shadows the
+   * whole prototype chain) plus a global getComputedStyle. `blockOffset` is
+   * read through the getter on every access. Returns the restore function. */
+  function stubMeasure(
+    container: HTMLElement,
+    blockOffset: () => number,
+    colClient: number,
+    cs: { fontSize: string; paddingLeft: string; paddingRight: string },
+  ): () => void {
+    const col = container.querySelector<HTMLElement>(".dsh-opening-cst-col")!;
+    const blocks = [...container.querySelectorAll<HTMLElement>(".dsh-opening-cst-block")];
+    Object.defineProperty(col, "clientWidth", { configurable: true, get: () => colClient });
+    for (const block of blocks) {
+      Object.defineProperty(block, "offsetWidth", { configurable: true, get: blockOffset });
+    }
+    vi.stubGlobal("getComputedStyle", () => cs as unknown as CSSStyleDeclaration);
+    return () => {
+      vi.unstubAllGlobals();
+    };
+  }
+
+  const FAKE_CS = { fontSize: "119px", paddingLeft: "20px", paddingRight: "20px" };
+
+  it("leaves font-size untouched when there is no layout (detached container)", () => {
+    const { runtime } = makeRuntime();
+    const engine = new Constructivism1Engine(runtime);
+    engine.start();
+    for (const block of runtime.container.querySelectorAll<HTMLElement>(".dsh-opening-cst-block")) {
+      expect(block.style.fontSize).toBe("");
+    }
+    engine.destroy();
+  });
+
+  it("shrinks an overflowing block so its text lands inside the column", () => {
+    const { runtime } = makeRuntime();
+    const engine = new Constructivism1Engine(runtime); // DOM exists now
+    const restore = stubMeasure(runtime.container, () => 800, 537, FAKE_CS);
+    try {
+      engine.start();
+      const blocks = [...runtime.container.querySelectorAll<HTMLElement>(".dsh-opening-cst-block")];
+      // scale = (537 - 40) / (800 - 40) = 497/760; 119px * 497/760 = 77.8197…
+      expect(blocks[0]!.style.fontSize).toBe("77.82px");
+      expect(blocks[1]!.style.fontSize).toBe("77.82px");
+      engine.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-baselines on a later refit once the text fits again", () => {
+    const { runtime } = makeRuntime();
+    const engine = new Constructivism1Engine(runtime);
+    let blockOffset = 800;
+    const restore = stubMeasure(runtime.container, () => blockOffset, 537, FAKE_CS);
+    try {
+      engine.start();
+      const block = runtime.container.querySelector<HTMLElement>(".dsh-opening-cst-block")!;
+      expect(block.style.fontSize).not.toBe("");
+      blockOffset = 500; // narrower face (or smaller viewport) — fits now
+      window.dispatchEvent(new Event("resize"));
+      expect(block.style.fontSize).toBe(""); // inline override cleared
+      engine.destroy();
+    } finally {
+      restore();
+    }
+  });
+
+  it("stops refitting after destroy", () => {
+    const { runtime } = makeRuntime();
+    const engine = new Constructivism1Engine(runtime);
+    const restore = stubMeasure(runtime.container, () => 800, 537, FAKE_CS);
+    try {
+      engine.start();
+      engine.destroy();
+      const block = runtime.container.querySelector<HTMLElement>(".dsh-opening-cst-block");
+      expect(block).toBeNull(); // the root is gone; a late fonts.ready must not throw
+      expect(() => window.dispatchEvent(new Event("resize"))).not.toThrow();
+    } finally {
+      restore();
+    }
+  });
+});
+
 describe("constructivism1 video variant (jsdom)", () => {
   it("starts the video muted, inline and looping, with once disabling the loop", () => {
     const { runtime } = makeRuntime({}, "video");

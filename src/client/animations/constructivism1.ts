@@ -69,6 +69,8 @@ function div(className: string): HTMLDivElement {
 export class Constructivism1Engine implements AnimationController {
   private readonly runtime: AnimationRuntime;
   private readonly root: HTMLDivElement;
+  private readonly colEl: HTMLDivElement;
+  private readonly blockEls: HTMLDivElement[] = [];
   private readonly mediaEl: HTMLImageElement | HTMLVideoElement;
   private readonly durationMs: number;
   /** Video variant only: the loop param, "once" keeps the final frame. */
@@ -81,6 +83,10 @@ export class Constructivism1Engine implements AnimationController {
   private destroyed = false;
   /** Video variant only: the unmute probe has run (silent fallback is final). */
   private unmuted = false;
+
+  private readonly onResize = (): void => {
+    if (!this.destroyed) this.fitCaptionBlocks();
+  };
 
   private readonly onImgLoad = (): void => {
     if (this.destroyed) return;
@@ -188,6 +194,7 @@ export class Constructivism1Engine implements AnimationController {
     const brand = div("dsh-opening-cst-brand");
     brand.textContent = BRAND_TEXT;
     const col = div("dsh-opening-cst-col");
+    this.colEl = col;
     captionLines(caption).forEach((line, index) => {
       const block = div(
         `dsh-opening-cst-block ${index % 2 === 0 ? "dsh-opening-cst-block-ink" : "dsh-opening-cst-block-paper"} dsh-opening-cst-block-${index}`,
@@ -195,6 +202,7 @@ export class Constructivism1Engine implements AnimationController {
       block.textContent = line;
       block.style.setProperty("--cst-rot", `${index % 2 === 0 ? -1 : 1}deg`);
       block.style.setProperty("--cst-shift", `${(index * 1.6).toFixed(1)}vw`);
+      this.blockEls.push(block);
       col.append(block);
     });
 
@@ -210,10 +218,17 @@ export class Constructivism1Engine implements AnimationController {
       this.mediaEl.addEventListener("playing", this.onPlaying);
       this.mediaEl.addEventListener("pause", this.onPause);
     }
+    window.addEventListener("resize", this.onResize);
+    // A webfont finishing after the first fit changes the text metrics —
+    // re-fit once the font set settles (destroyed engines just skip).
+    document.fonts?.ready.then(() => {
+      if (!this.destroyed) this.fitCaptionBlocks();
+    });
   }
 
   start(): void {
     if (this.destroyed || this.completed) return;
+    this.fitCaptionBlocks();
     this.mediaEl.src = this.runtime.media.url;
     if (this.mediaEl instanceof HTMLVideoElement) this.playWithRetry(1);
     this.completeTimer = window.setTimeout(() => this.markCompleted(), this.durationMs);
@@ -237,6 +252,7 @@ export class Constructivism1Engine implements AnimationController {
   destroy(): void {
     this.destroyed = true;
     window.clearTimeout(this.completeTimer);
+    window.removeEventListener("resize", this.onResize);
     if (this.mediaEl instanceof HTMLImageElement) {
       this.mediaEl.removeEventListener("load", this.onImgLoad);
       this.mediaEl.removeEventListener("error", this.onMediaError);
@@ -254,6 +270,37 @@ export class Constructivism1Engine implements AnimationController {
       }
     }
     this.root.remove();
+  }
+
+  /**
+   * The caption blocks declare no font-family — they inherit the host UI's
+   * stack, whose resolved face differs per machine: a narrow condensed face
+   * fits the 28% column, a wide 900-weight face overflows the plate clamped
+   * by `max-width: 100%` and `white-space: nowrap` paints the glyphs past
+   * the block edge. Re-baseline each block on the stylesheet clamp value,
+   * measure it unconstrained, and shrink its font-size proportionally when
+   * the natural width exceeds the column: the plate shrink-wraps the fitted
+   * text, so the composition holds for every font the host can resolve.
+   */
+  private fitCaptionBlocks(): void {
+    const budget = this.colEl.clientWidth;
+    if (budget <= 0) return; // no layout yet (detached container)
+    for (const block of this.blockEls) {
+      block.style.fontSize = "";
+      block.style.maxWidth = "none";
+      const natural = block.offsetWidth;
+      block.style.maxWidth = "";
+      if (natural <= budget) continue;
+      const cs = getComputedStyle(block);
+      const base = Number.parseFloat(cs.fontSize);
+      const padX = Number.parseFloat(cs.paddingLeft) + Number.parseFloat(cs.paddingRight);
+      const text = natural - padX;
+      const room = budget - padX;
+      if (!Number.isFinite(base) || base <= 0 || text <= 0) continue;
+      // room <= 0 only in absurdly narrow windows; keep a visible floor.
+      const scale = Math.max(room > 0 ? room / text : 0, 0.25);
+      block.style.fontSize = `${(base * scale).toFixed(2)}px`;
+    }
   }
 
   private markCompleted(): void {
