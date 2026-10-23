@@ -47,6 +47,10 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 
 ![constructivism1_Pic](docs/pic/constructivism1_Pic.gif)
 
+**haloflux**（图片 / 视频双条目：节拍驱动的科幻控制台动画；高级设置「小面板素材」——关闭（默认：不使用素材，无可调过渡，此模式播放内置背景音乐，时长(ms) 参数自由决定播放长度、上限为时长上限设置的 120s 底线）/ 全部（八格播放媒体库素材）/ 单一（八格播放当前选中素材）；启用素材时，钩子时刻（默认 5s）八面板先内容故障再闪绿幕 #00B140 并各自跑一种随机分配的故障过渡层，随后八格素材墙，光环持续播放；内置音乐为 "Synthwave 421k"（64kbps 流式播放）— The Cynic Project (cynicmusic)，CC0）
+
+![haloflux](docs/pic/haloflux.png)
+
 **...**
 
 ### 视频开场动画
@@ -56,6 +60,8 @@ DeepSeek Harness Web 的开场动画插件：每次 dsh web 页面加载时，�
 **constructivism1-vidio**
     
 ![constructivism1_vidio](docs/pic/constructivism1_video.gif)
+
+**haloflux-video**（与 haloflux 同一条动画链路；素材墙中全部视频播完后交还主界面，仅第一路视频承载音量设置；同一素材多格只解码一路，不同视频超过 4 路时控制台提示；haloflux 可视化原型见 [docs/haloflux.html](docs/haloflux.html)）
 
 ## 构建
 

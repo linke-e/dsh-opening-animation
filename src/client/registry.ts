@@ -9,6 +9,7 @@ import { constructivism1Animation, constructivism1VideoAnimation } from "./anima
 import { glassAnimation } from "./animations/glass";
 import { glitch404Animation } from "./animations/glitch-404";
 import { gridMouseAnimation } from "./animations/grid-mouse";
+import { halofluxAnimation, halofluxVideoAnimation } from "./animations/haloflux";
 import { retroBootAnimation } from "./animations/retro-boot";
 import { tapRevealAnimation } from "./animations/tap-reveal";
 import { videoPlayerAnimation } from "./animations/video-player";
@@ -28,6 +29,11 @@ export interface AnimationRuntime {
   /** The engine's only canvas: the .dsh-opening-stage node. Engines must not touch anything outside it. */
   container: HTMLElement;
   media: ResolvedMedia;
+  /** The whole media library at play time (newest first, ≤ MAX_MEDIA items),
+   * for engines that present several items at once (e.g. a monitor wall).
+   * Optional: engines must fall back to [media] when absent. Object-URL
+   * lifecycle stays with the OverlayRunner — engines never revoke these. */
+  library?: ReadonlyArray<ResolvedMedia>;
   /** Defaults merged with user paramOverrides; read-only. */
   params: Readonly<Record<string, unknown>>;
   /** Locale function bound to this plugin's namespace. */
@@ -130,6 +136,8 @@ registerAnimation(constructivism1VideoAnimation);
 registerAnimation(glassAnimation);
 registerAnimation(glitch404Animation);
 registerAnimation(gridMouseAnimation);
+registerAnimation(halofluxAnimation);
+registerAnimation(halofluxVideoAnimation);
 registerAnimation(retroBootAnimation);
 registerAnimation(tapRevealAnimation);
 registerAnimation(videoPlayerAnimation);

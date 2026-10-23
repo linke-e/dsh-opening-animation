@@ -463,6 +463,7 @@ export class OpeningController {
     const runner = new OverlayRunner({
       animation,
       media: { url, kind, mime: record.type, name: record.name },
+      library: this.snapshot.media.map((item) => ({ url: item.url, kind: item.kind, mime: item.type, name: item.name })),
       transition: getTransition(snapshot.transitionId),
       transitionScale: snapshot.transitionScale,
       maxDurationMs: snapshot.maxDurationMs,

@@ -12,6 +12,8 @@ import type { TransitionPreset } from "./transitions";
 export interface OverlayRunnerOptions {
   animation: OpeningAnimation;
   media: ResolvedMedia;
+  /** The whole media library at play time; passed through to the engine. */
+  library?: ReadonlyArray<ResolvedMedia>;
   transition: TransitionPreset;
   transitionScale: number;
   /** Image animations only; videos always play to the end. */
@@ -119,6 +121,7 @@ export class OverlayRunner {
     const runtime: AnimationRuntime = {
       container: stage,
       media: this.opts.media,
+      library: this.opts.library,
       params: this.opts.params,
       t: this.opts.t,
       markLoaded: () => this.markLoaded(),

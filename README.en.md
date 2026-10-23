@@ -47,6 +47,10 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 
 ![constructivism1_Pic](docs/pic/constructivism1_Pic.gif)
 
+**haloflux** (image / video pair: a beat-driven sci-fi console animation; advanced setting "panel media" — off (default: no media, no panel transition, with the built-in streaming BGM — "Synthwave 421k" by The Cynic Project (cynicmusic), CC0 — and a free duration(ms) param, capped at the duration-setting's 120 s bottom line) / all (the library across the 8 slots) / single (the selected item on all 8); with media enabled, a configurable hook time (5 s by default) flashes the eight slots to chroma green #00B140, each running its own randomly assigned glitch transition layer, then one item per slot, while the halo keeps playing)
+
+![haloflux](docs/pic/haloflux.png)
+
 **...**
 
 ### Video opening
@@ -56,6 +60,8 @@ An opening-animation plugin for DeepSeek Harness Web: every time a dsh web page 
 **constructivism1-vidio**
 
 ![constructivism1_vidio](docs/pic/constructivism1_video.gif)
+
+**haloflux-video** (the same animation chain as haloflux; hands over once every wall clip has played, with only the first video carrying the volume setting; one decode per unique item, a console warning past four distinct videos; visual prototype at [docs/haloflux.html](docs/haloflux.html))
 
 
 ## Build

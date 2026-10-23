@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>haloflux engine — visual prototype</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #08090b; color: #9aa; overflow: hidden; }
+  #stage { position: absolute; inset: 0; }
+  #hud { position: fixed; left: 8px; bottom: 8px; z-index: 99; font: 11px Consolas, monospace;
+    color: #8fa; background: rgba(0,0,0,.65); border: 1px solid #3a3e46; padding: 5px 9px; pointer-events: none; }
+  #hud b { color: #fff; }
+</style>
+</head>
+<body>
+<!--
+  Visual prototype for the haloflux opening-animation engine (grid-mouse.html
+  precedent): the bundled engine's real code runs inside a mock AnimationRuntime.
+  Regenerate the bundle after touching the engine:
+    pnpm exec esbuild src/client/animations/haloflux.ts --bundle --format=iife \
+      --global-name=HalofluxDemo --outfile=docs/haloflux-engine.js
+  Debug params: ?hook=3000 (glitch hook ms) · ?wall=off|all|single (panel
+  media mode; default all in the prototype, off in the plugin) · ?dur=8000
+  (off-mode total run ms, up to the BGM's full 7'54") · ?items=N (library
+  size, 1–8, wrapped across the eight wall slots) · ?restart
+-->
+<div id="stage"></div>
+<div id="hud">phase: <b id="hudPhase">halo</b> · t=<b id="hudT">0</b>ms · complete=<b id="hudC">no</b> · fail=<b id="hudF">no</b></div>
+<script src="./haloflux-engine.js"></script>
+<script>
+(() => {
+  'use strict';
+  const q = new URLSearchParams(location.search);
+  const hookMs = Number(q.get('hook')) || 5000;
+  const kind = q.get('media') === 'video' ? 'video' : 'image';
+  const volume = Number(q.get('vol') ?? 100);
+
+  // Generated stand-in "user pictures": one hue per item, numbered, so each
+  // wall slot's assignment is unmistakable. ?items=N controls the library
+  // size (the engine wraps N items around the eight slots).
+  function makeSamplePicture(index, total) {
+    const c = document.createElement('canvas');
+    c.width = 1280; c.height = 720;
+    const x = c.getContext('2d');
+    const hue = Math.round((index * 360) / Math.max(1, total));
+    const g = x.createLinearGradient(0, 0, 1280, 720);
+    g.addColorStop(0, `hsl(${hue} 45% 22%)`); g.addColorStop(1, `hsl(${(hue + 60) % 360} 55% 38%)`);
+    x.fillStyle = g; x.fillRect(0, 0, 1280, 720);
+    x.strokeStyle = 'rgba(255,255,255,.1)';
+    for (let i = 0; i < 1280; i += 48) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 720); x.stroke(); }
+    for (let j = 0; j < 720; j += 48) { x.beginPath(); x.moveTo(0, j); x.lineTo(1280, j); x.stroke(); }
+    x.fillStyle = 'rgba(255,255,255,.94)';
+    x.font = '800 150px Consolas, monospace';
+    x.fillText('MEDIA ' + index, 330, 420);
+    return c.toDataURL('image/png');
+  }
+
+  const itemCount = Math.min(8, Math.max(1, Number(q.get('items')) || 8));
+  const library = Array.from({ length: itemCount }, (_, i) => ({
+    url: makeSamplePicture(i, itemCount),
+    kind: 'image',
+    mime: 'image/png',
+    name: 'sample-' + i + '.png',
+  }));
+
+  const hudPhase = document.getElementById('hudPhase');
+  const hudT = document.getElementById('hudT');
+  const hudC = document.getElementById('hudC');
+  const hudF = document.getElementById('hudF');
+  const t0 = performance.now();
+  setInterval(() => { hudT.textContent = String(Math.round(performance.now() - t0)); }, 100);
+
+  const wallMedia = ['off', 'all', 'single'].includes(q.get('wall')) ? q.get('wall') : 'all';
+  const durationMs = Number(q.get('dur')) || 5000;
+  const runtime = {
+    container: document.getElementById('stage'),
+    media: library[0],
+    library,
+    params: { hookMs, wallMedia, durationMs, volume },
+    t: (key) => key,
+    markLoaded: () => { console.log('[demo] markLoaded'); },
+    complete: () => {
+      hudC.textContent = 'YES @' + Math.round(performance.now() - t0) + 'ms';
+      hudPhase.textContent = 'media (complete)';
+      console.log('[demo] complete');
+      if (q.get('restart')) setTimeout(start, 1500);
+    },
+    fail: (err) => { hudF.textContent = 'YES'; console.error('[demo] fail', err); },
+  };
+
+  function start() {
+    hudC.textContent = 'no'; hudF.textContent = 'no';
+    runtime.container.innerHTML = '';
+    hudPhase.textContent = 'halo';
+    const engine = HalofluxDemo.halofluxAnimation.create(runtime);
+    engine.start();
+    window.__engine = engine;
+    const t0 = performance.now();
+    const watch = setInterval(() => {
+      if (!window.__engine) { clearInterval(watch); return; }
+      const t = performance.now() - t0;
+      if (t > hookMs && hudPhase.textContent === 'halo') hudPhase.textContent = 'glitch';
+    }, 80);
+    setTimeout(() => clearInterval(watch), hookMs + 2500);
+  }
+
+  // Esc skips (the real overlay wires click/Esc to skip()); R rebuilds.
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') window.__engine?.skip();
+    if (e.key === 'r' || e.key === 'R') start();
+  });
+  start();
+})();
+</script>
+</body>
+</html>
