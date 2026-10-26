@@ -28,6 +28,63 @@ export const GLOBAL_STYLES = String.raw`
   opacity: 0;
   transform: scale(1.04);
 }
+/* glass-wipe's preset class stays visual-neutral on purpose: the custom
+   stack (.dsh-opening-gw) drives the whole exit, so the root itself neither
+   fades nor moves until the stack's settle phase adds .dsh-opening-gw-exit
+   below and cross-fades the whole overlay into the revealed UI. */
+.dsh-opening-exit-glass-wipe { }
+
+/* ---- glass-wipe transition: a frosted pane over the still-playing opening —
+   the pane itself is empty; its backdrop-filter blur rises from 0 to full
+   while a light tint fades in, so what grows blurry is the LIVE opening
+   underneath (a video keeps playing through the frost); then a wide soft-
+   bristle brush sweeps the frost in three folding strokes (the erased area
+   accumulates on the crisp canvas through a brush-mask canvas) and whatever
+   the strokes leave uncovered spreads to the full screen from the brush's
+   last position; the settle then cross-fades the whole overlay root (stack
+   plus the stage's final frame) into the revealed UI, so no tail frame is
+   ever shown on its own. Durations and blur come from the engine's --gw-*
+   variables on the root (scaled by transitionScale); the defaults are the
+   1x values. ---- */
+.dsh-opening-gw {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+}
+.dsh-opening-root.dsh-opening-gw-exit {
+  opacity: 0;
+  transition: opacity var(--gw-settle-ms, 450ms) ease;
+}
+.dsh-opening-gw-pane {
+  position: absolute;
+  inset: -6%;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  background-color: rgb(4 5 14 / 0);
+  transition:
+    backdrop-filter var(--gw-blur-ms, 900ms) ease-in,
+    -webkit-backdrop-filter var(--gw-blur-ms, 900ms) ease-in,
+    background-color var(--gw-blur-ms, 900ms) ease-in;
+}
+.dsh-opening-gw.dsh-opening-gw-run .dsh-opening-gw-pane {
+  backdrop-filter: blur(var(--gw-blur, 28px));
+  -webkit-backdrop-filter: blur(var(--gw-blur, 28px));
+  background-color: rgb(4 5 14 / 0.35);
+}
+.dsh-opening-gw-clear {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.dsh-opening-gw-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .dsh-opening-stage,
 .dsh-opening-stage canvas,

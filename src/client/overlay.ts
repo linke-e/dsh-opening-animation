@@ -7,7 +7,7 @@
 
 import { removeCriticalStyles } from "./styles";
 import type { AnimationController, AnimationRuntime, OpeningAnimation, ResolvedMedia } from "./registry";
-import type { TransitionPreset } from "./transitions";
+import { CROSS_FADE_EXIT_CLASS, type TransitionPreset, type TransitionSetupResult } from "./transitions";
 
 export interface OverlayRunnerOptions {
   animation: OpeningAnimation;
@@ -48,6 +48,7 @@ export class OverlayRunner {
   private readonly timers = new Set<number>();
   private loadTimeoutTimer: number | null = null;
   private capturedRootInline: CapturedRootInline | null = null;
+  private transitionDispose?: () => void;
   private videoProgressAt = 0;
   /** App root hidden behind the overlay; made inert so keyboard focus cannot
    * land on invisible controls, restored (with focus) on teardown. */
@@ -64,7 +65,25 @@ export class OverlayRunner {
 
   private readonly onTimeUpdate = (): void => {
     this.videoProgressAt = Date.now();
+    this.checkVideoHandoff();
   };
+
+  /** A preset with a handoff window fires the transition while its main video
+   * still has that much left: the video keeps playing under the transition
+   * and lands on its final frame as the reveal finishes. Only the engine's
+   * own stage-direct video counts — duration-driven engines keep their own
+   * timing; looped videos have no final frame to align to. */
+  private checkVideoHandoff(): void {
+    const windowMs = Math.round((this.opts.transition.videoHandoffMs ?? 0) * this.opts.transitionScale);
+    if (windowMs <= 0) return;
+    const video = [...(this.stageEl?.children ?? [])].find(
+      (el): el is HTMLVideoElement => el instanceof HTMLVideoElement,
+    );
+    if (video === undefined || video.loop) return;
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    // duration/currentTime are seconds; the window is milliseconds
+    if ((video.duration - video.currentTime) * 1000 <= windowMs) this.beginTransition();
+  }
 
   constructor(opts: OverlayRunnerOptions) {
     this.opts = opts;
@@ -112,7 +131,10 @@ export class OverlayRunner {
     // Watchdogs. Any fire hands the screen back; the transition guard makes them one-shot.
     this.loadTimeoutTimer = this.setTimer(() => this.fireLoadTimeout(), LOAD_TIMEOUT_MS);
     if (this.opts.media.kind === "image") {
-      this.setTimer(() => this.fireMaxDuration(), this.opts.maxDurationMs);
+      // The transition budget comes out of the max-duration cap: the whole
+      // experience (opening + transition) must fit maxDurationMs, so the
+      // watchdog fires early enough for the transition to finish inside it.
+      this.setTimer(() => this.fireMaxDuration(), Math.max(0, this.opts.maxDurationMs - this.transitionBudgetMs()));
     } else {
       stage.addEventListener("timeupdate", this.onTimeUpdate, true);
       this.setTimer(this.checkVideoStall, VIDEO_CHECK_INTERVAL_MS);
@@ -168,6 +190,12 @@ export class OverlayRunner {
     } catch (err) {
       console.warn("[dsh-opening-animation] engine destroy failed", err);
     }
+    try {
+      this.transitionDispose?.();
+    } catch (err) {
+      console.warn("[dsh-opening-animation] transition dispose failed", err);
+    }
+    this.transitionDispose = undefined;
     this.rootEl?.remove();
     this.rootEl = null;
     this.stageEl = null;
@@ -248,15 +276,40 @@ export class OverlayRunner {
 
     const preset = this.opts.transition;
     const scale = this.opts.transitionScale;
-    const exitMs = Math.max(1, Math.round(preset.exitMs * scale));
-    const enterMs = Math.max(1, Math.round(preset.enterMs * scale));
-    const enterDelay = Math.round(preset.enterDelayMs * scale);
+    // A custom transition builds its DOM here and may override the preset's
+    // base durations; a thrown setup degrades to the cross-fade exit class
+    // (fail-open, ADR-005) with the preset's static timings.
+    let setup: TransitionSetupResult | void = undefined;
+    let exitClass = preset.exitClass;
+    if (preset.setup !== undefined && this.rootEl !== null) {
+      try {
+        setup = preset.setup({ root: this.rootEl, media: this.opts.media, scale });
+      } catch (err) {
+        console.warn("[dsh-opening-animation] transition setup failed", err);
+        exitClass = CROSS_FADE_EXIT_CLASS;
+      }
+    }
+    this.transitionDispose = setup?.dispose;
+    const exitMs = Math.max(1, Math.round((setup?.exitMs ?? preset.exitMs) * scale));
+    const enterMs = Math.max(1, Math.round((setup?.enterMs ?? preset.enterMs) * scale));
+    const enterDelay = Math.round((setup?.enterDelayMs ?? preset.enterDelayMs) * scale);
 
     this.rootEl?.style.setProperty("--dsh-opening-exit-ms", `${exitMs}ms`);
-    this.rootEl?.classList.add(preset.exitClass);
+    this.rootEl?.classList.add(exitClass);
 
     this.setTimer(() => this.revealApp(enterMs), enterDelay);
-    this.setTimer(() => this.destroy(), exitMs + enterDelay + enterMs + TRANSITION_BUFFER_MS);
+    // The teardown moment is the transition's total (all visuals done); a
+    // setup's totalMs wins over the preset's, whose default folds the three
+    // back-to-back phase lengths together.
+    this.setTimer(() => this.destroy(), this.transitionBudgetMs(setup?.totalMs) + TRANSITION_BUFFER_MS);
+  }
+
+  /** Base-scaled duration from the transition's start to its last visual
+   * change (see TransitionPreset.totalMs). */
+  private transitionBudgetMs(totalOverride?: number): number {
+    const preset = this.opts.transition;
+    const total = totalOverride ?? preset.totalMs ?? preset.exitMs + preset.enterDelayMs + preset.enterMs;
+    return Math.max(1, Math.round(total * this.opts.transitionScale));
   }
 
   /** Un-pending the app and run the #root enter animation via inline styles. */

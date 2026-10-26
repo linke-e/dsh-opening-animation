@@ -4,8 +4,9 @@
 // Engines never import React or anything under ui/; ui/ only sees these types.
 
 import { poolAnimation } from "./animations/pool";
-import { codeRainAnimation } from "./animations/code-rain";
+import { codeRainAnimation, codeRainVideoAnimation } from "./animations/code-rain";
 import { constructivism1Animation, constructivism1VideoAnimation } from "./animations/constructivism1";
+import { fakeCodeAnimation, fakeCodeVideoAnimation } from "./animations/fake-code";
 import { glassAnimation } from "./animations/glass";
 import { glitch404Animation } from "./animations/glitch-404";
 import { gridMouseAnimation } from "./animations/grid-mouse";
@@ -66,6 +67,9 @@ export interface ParamSpec {
   max?: number;
   step?: number;
   options?: readonly string[];
+  /** String params only: render a multi-line editor instead of a one-line
+   * input (the value still arrives as one string with real newlines). */
+  multiline?: boolean;
 }
 
 export interface OpeningAnimation {
@@ -131,8 +135,11 @@ function clampToSpec(value: number, spec: ParamSpec): number {
 
 registerAnimation(poolAnimation);
 registerAnimation(codeRainAnimation);
+registerAnimation(codeRainVideoAnimation);
 registerAnimation(constructivism1Animation);
 registerAnimation(constructivism1VideoAnimation);
+registerAnimation(fakeCodeAnimation);
+registerAnimation(fakeCodeVideoAnimation);
 registerAnimation(glassAnimation);
 registerAnimation(glitch404Animation);
 registerAnimation(gridMouseAnimation);

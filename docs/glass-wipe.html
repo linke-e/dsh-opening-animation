@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>glass-wipe transition — visual prototype</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #04050e; color: #9aa; overflow: hidden; }
+  #stage { position: absolute; inset: 0; }
+  #hud { position: fixed; left: 8px; bottom: 8px; z-index: 2147483647; font: 11px Consolas, monospace;
+    color: #8fa; background: rgba(0,0,0,.75); border: 1px solid #3a3e46; padding: 5px 9px; pointer-events: none; }
+  #hud b { color: #fff; }
+  /* ---- glass-wipe CSS (kept in sync with src/client/styles.ts) ---- */
+  .dsh-opening-gw-demo-root { position: fixed; inset: 0; z-index: 2147483645; background: #04050e; }
+  .dsh-opening-gw { position: absolute; inset: 0; z-index: 6; overflow: hidden; }
+  .dsh-opening-root.dsh-opening-gw-exit, .dsh-opening-gw-demo-root.dsh-opening-gw-exit {
+    opacity: 0; transition: opacity var(--gw-settle-ms, 450ms) ease; }
+  .dsh-opening-gw-pane {
+    position: absolute; inset: -6%;
+    backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px);
+    background-color: rgb(4 5 14 / 0);
+    transition: backdrop-filter var(--gw-blur-ms, 900ms) ease-in,
+      -webkit-backdrop-filter var(--gw-blur-ms, 900ms) ease-in,
+      background-color var(--gw-blur-ms, 900ms) ease-in; }
+  .dsh-opening-gw.dsh-opening-gw-run .dsh-opening-gw-pane {
+    backdrop-filter: blur(var(--gw-blur, 28px)); -webkit-backdrop-filter: blur(var(--gw-blur, 28px));
+    background-color: rgb(4 5 14 / 0.35); }
+  .dsh-opening-gw-clear { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .dsh-opening-gw-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* demo opening: a moving marquee so "the opening keeps playing" is visible
+     through the frost */
+  #opening { position: absolute; inset: 0; }
+  #opening img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #opening .mover { position: absolute; top: 40%; left: -30%; width: 60%; padding: 18px 0; text-align: center;
+    font: 700 44px system-ui; color: #fff; background: rgba(255,255,255,.16); border: 2px solid rgba(255,255,255,.4);
+    animation: demo-slide 3s linear infinite; }
+  @keyframes demo-slide { to { transform: translateX(220%); } }
+</style>
+</head>
+<body>
+<!--
+  Visual prototype for the glass-wipe transition (haloflux.html precedent):
+  the bundled transition's real code runs with a mock overlay root, on top of
+  a fake "opening" (a still sample picture plus a moving marquee). Regenerate
+  the bundle after touching the transition:
+    pnpm exec esbuild src/client/glass-wipe.ts --bundle --format=iife
+      --global-name=GlassWipeDemo --outfile=docs/glass-wipe-engine.js
+  Debug params: ?scale=2|3 (slower phases for inspection) · ?skin=1 (seed a
+  fake dsh-custom-skin wallpaper library so the wipe reveals it) · ?restart.
+  The wipe reveals the fake "wallpaper" when ?skin=1, otherwise the sample
+  picture itself (the no-skin fallback).
+-->
+<div id="stage">
+  <div id="opening">
+    <img id="openingImg" alt="">
+    <div class="mover">OPENING STILL PLAYING →</div>
+  </div>
+</div>
+<div id="hud">phase: <b id="hudPhase">blur-in</b> · t=<b id="hudT">0</b>ms · source=<b id="hudSrc">media</b></div>
+<script src="./glass-wipe-engine.js"></script>
+<script>
+(() => {
+  'use strict';
+  const q = new URLSearchParams(location.search);
+  const scale = Number(q.get('scale')) || 1;
+
+  // The sample picture doubles as the opening frame and the no-skin fallback.
+  const sample = document.createElement('canvas');
+  sample.width = 1280; sample.height = 720;
+  const g = sample.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 1280, 720);
+  sky.addColorStop(0, '#173f9e'); sky.addColorStop(0.55, '#0e1430'); sky.addColorStop(1, '#001333');
+  g.fillStyle = sky; g.fillRect(0, 0, 1280, 720);
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.5})`;
+    g.beginPath(); g.arc(Math.random() * 1280, Math.random() * 720, Math.random() * 2.4, 0, Math.PI * 2); g.fill();
+  }
+  g.font = '900 120px system-ui'; g.fillStyle = 'rgba(255,255,255,0.92)';
+  g.fillText('OPENING', 320, 340);
+  g.font = '300 52px system-ui'; g.fillStyle = 'rgba(255,255,255,0.65)';
+  g.fillText('sample picture', 430, 420);
+  document.getElementById('openingImg').src = sample.toDataURL('image/png');
+
+  // The "wallpaper" for ?skin=1: a distinctly different picture (warm wash +
+  // big WP letters) seeded into a fake dsh-custom-skin library.
+  const wallpaper = document.createElement('canvas');
+  wallpaper.width = 1280; wallpaper.height = 720;
+  const w = wallpaper.getContext('2d');
+  const wash = w.createLinearGradient(0, 720, 1280, 0);
+  wash.addColorStop(0, '#8a3b12'); wash.addColorStop(0.5, '#c2701e'); wash.addColorStop(1, '#e3d1bd');
+  w.fillStyle = wash; w.fillRect(0, 0, 1280, 720);
+  w.font = '900 260px system-ui'; w.fillStyle = 'rgba(255,255,255,0.85)';
+  w.fillText('WP', 430, 480);
+
+  async function seedSkin() {
+    localStorage.setItem('dsh-custom-skin.preferences.v1',
+      JSON.stringify({ enabled: true, activeId: 'demo-wall', fit: 'cover', position: 'center' }));
+    const blob = await new Promise((resolve) => wallpaper.toBlob(resolve, 'image/png'));
+    const database = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('dsh-custom-skin', 1);
+      request.onupgradeneeded = () => { request.result.createObjectStore('wallpapers', { keyPath: 'id' }); };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const write = database.transaction('wallpapers', 'readwrite');
+    write.objectStore('wallpapers').put({ id: 'demo-wall', name: 'wp.png', type: 'image/png', blob, createdAt: 1 });
+    await new Promise((resolve) => { write.oncomplete = resolve; });
+    database.close();
+  }
+
+  function run() {
+    if (q.has('restart')) location.reload();
+    const root = document.createElement('div');
+    root.className = 'dsh-opening-gw-demo-root';
+    // The fake opening lives INSIDE the overlay root (the real plugin's stage
+    // does), so the pane's backdrop-filter blurs the live opening.
+    const opening = document.getElementById('opening');
+    document.getElementById('stage').append(root);
+    root.append(opening);
+    const sampleBlob = sample.toDataURL('image/png');
+    const media = { url: sampleBlob, kind: 'image', mime: 'image/png', name: 'sample.png' };
+    const result = GlassWipeDemo.setupGlassWipe({
+      root, media, scale,
+    });
+    const started = performance.now();
+    const hud = setInterval(() => {
+      const t = Math.round(performance.now() - started);
+      document.getElementById('hudT').textContent = String(t);
+      document.getElementById('hudSrc').textContent =
+        document.querySelector('.dsh-opening-gw-clear')?.dataset.gwSource ?? '?';
+      const blurMs = Math.round(900 * scale), wipeMs = Math.round(1400 * scale);
+      document.getElementById('hudPhase').textContent =
+        t < blurMs ? 'blur-in' : t < blurMs + wipeMs
+          ? (t < blurMs + Math.round(1000 * scale) ? 'brush' : 'spread')
+          : 'settle';
+      if (t > Math.round(3100 * scale)) clearInterval(hud);
+    }, 100);
+    window.__disposeDemo = result.dispose;
+  }
+
+  const ready = q.get('skin') === '1' ? seedSkin() : Promise.resolve();
+  // give the opening picture a beat so the frost has something to bite on
+  ready.then(() => setTimeout(run, q.get('skin') === '1' ? 400 : 100));
+})();
+</script>
+</body>
+</html>
